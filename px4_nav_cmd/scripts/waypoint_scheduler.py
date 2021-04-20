@@ -15,7 +15,7 @@ from tf.transformations import euler_from_quaternion
 import time, sys, math
 
 # Global variables
-# Waypoints = [N, E, D, Yaw (deg)]
+# Waypoints = [N, E, D, Yaw (deg)]. D is entered as postive values, but script converts it to negative
 waypoints = [
                 [0, 0, 2, 0],
                 [16, 0, 2, 0],
@@ -39,6 +39,9 @@ waypoints = [
                 [0, 30, 2, 0],
                 [0, 42, 2, 0],
             ]
+
+
+
 # Should the waypoints be relative from the initial position (except yaw)?
 relative = False
 # Threshold: How small the error should be before sending the next waypoint
@@ -48,7 +51,7 @@ threshold = 0.2
 waypoint_time = -1
  # If autonomous is True, this node will automatically arm, switch to OFFBOARD mode, fly and land.
  # If it is False, it waits for the pilot to switch to OFFBOARD mode to fly and does not land.
-autonomous = False
+autonomous = True
 
 # Flight modes class
 # Flight modes are activated using ROS services
@@ -121,7 +124,7 @@ class Controller:
         self.pos_sp.yaw = math.radians(90 + yaw_step)
 
         # Set mask to control N, E, D and yaw
-        self.pos_sp.type_mask = int('100111111000', 2) 
+        self.pos_sp.type_mask = int('100111111000', 2)
 
     # Callbacks.
 
@@ -169,7 +172,7 @@ def run(argv):
     # Subscribe to drone's linear velocity
     rospy.Subscriber('mavros/local_position/velocity', TwistStamped, cnt.velCb)
 
-    # Setpoint publishers   
+    # Setpoint publishers
     sp_pos_pub = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=1)
 
     # Arm the drone
@@ -221,7 +224,7 @@ def run(argv):
                targetReached(y, cnt.local_pos.y, threshold) and targetReached(0, cnt.local_vel.y, threshold) and \
                targetReached(z, cnt.local_pos.z, threshold) and targetReached(0, cnt.local_vel.z, threshold) and \
                targetReached(yaw, cnt.local_yaw, threshold):
-                
+
                 current_wp = current_wp + 1
                 if current_wp < len(waypoints):
                     print("Executing waypoint %d / %d" % (current_wp + 1, len(waypoints)))
