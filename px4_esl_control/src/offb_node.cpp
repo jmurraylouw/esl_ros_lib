@@ -6,6 +6,7 @@
 
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Vector3Stamped.h>
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
@@ -24,6 +25,8 @@ int main(int argc, char **argv)
             ("mavros/state", 10, state_cb);
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>
             ("mavros/setpoint_position/local", 10);
+    ros::Publisher accel_sp_pub = nh.advertise<geometry_msgs::Vector3Stamped>
+            ("mavros/setpoint_accel/accel", 10); // Message buffer of 10, i.e. 10 messages are kept before throwing away
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>
             ("mavros/cmd/arming");
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>
@@ -43,9 +46,16 @@ int main(int argc, char **argv)
     pose.pose.position.y = 0;
     pose.pose.position.z = 2;
 
+    geometry_msgs::Vector3Stamped accel_sp; // Acceleration setpoint as a ROS message: http://docs.ros.org/en/api/geometry_msgs/html/msg/Vector3Stamped.html
+    accel_sp.vector.x = 0;
+    accel_sp.vector.y = 0;
+    accel_sp.vector.z = 100;
+
     //send a few setpoints before starting
     for(int i = 100; ros::ok() && i > 0; --i){
-        local_pos_pub.publish(pose);
+        // local_pos_pub.publish(pose);
+        accel_sp_pub.publish(accel_sp);
+
         ros::spinOnce();
         rate.sleep();
     }
@@ -77,7 +87,8 @@ int main(int argc, char **argv)
             }
         }
 
-        local_pos_pub.publish(pose);
+        // local_pos_pub.publish(pose);
+        accel_sp_pub.publish(accel_sp);
 
         ros::spinOnce();
         rate.sleep();
