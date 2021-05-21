@@ -6,10 +6,12 @@
 
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Vector3Stamped.h>
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
+// #include "PositionControl.hpp"
 
 mavros_msgs::State current_state;
 void state_cb(const mavros_msgs::State::ConstPtr& msg){
@@ -23,16 +25,20 @@ int main(int argc, char **argv)
 
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>
             ("mavros/state", 10, state_cb);
+
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>
             ("mavros/setpoint_position/local", 10);
+    ros::Publisher vel_sp_pub = nh.advertise<geometry_msgs::Twist>
+            ("mavros/setpoint_velocity/cmd_vel_unstamped", 10);
     ros::Publisher accel_sp_pub = nh.advertise<geometry_msgs::Vector3Stamped>
             ("mavros/setpoint_accel/accel", 10); // Message buffer of 10, i.e. 10 messages are kept before throwing away
+
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>
             ("mavros/cmd/arming");
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>
             ("mavros/set_mode");
 
-    //the setpoint publishing rate MUST be faster than 2Hz
+    // Frequency of Node
     ros::Rate rate(20.0);
 
     // wait for FCU connection
@@ -41,12 +47,18 @@ int main(int argc, char **argv)
         rate.sleep();
     }
 
-    geometry_msgs::PoseStamped pose;
-    pose.pose.position.x = 0;
-    pose.pose.position.y = 0;
-    pose.pose.position.z = 2;
+    geometry_msgs::PoseStamped pos_sp; // Position set_point
+    pos_sp.pose.position.x = 0;
+    pos_sp.pose.position.y = 0;
+    pos_sp.pose.position.z = 2;
 
-    geometry_msgs::Vector3Stamped accel_sp; // Acceleration setpoint as a ROS message: http://docs.ros.org/en/api/geometry_msgs/html/msg/Vector3Stamped.html
+    geometry_msgs::Twist vel_sp; // Velocity setpoint
+    // MAVROS message:  setpoint_velocity/cmd_vel_unstamped (geometry_msgs/Twist)
+    vel_sp.linear.x = 0;
+    vel_sp.linear.y = 0;
+    vel_sp.linear.z = 10;
+
+    geometry_msgs::Vector3Stamped accel_sp; // Acceleration setpoint as a ROS message: http://docs.ros.org/en/api/geometAcceleration setpoint as a ROS messagery_msgs/html/msg/Vector3Stamped.html
     accel_sp.vector.x = 0;
     accel_sp.vector.y = 0;
     accel_sp.vector.z = 100;
@@ -54,12 +66,14 @@ int main(int argc, char **argv)
     //send a few setpoints before starting
     for(int i = 100; ros::ok() && i > 0; --i){
         // local_pos_pub.publish(pose);
-        accel_sp_pub.publish(accel_sp);
+        vel_sp_pub.publish(vel_sp);
+        // accel_sp_pub.publish(accel_sp);
 
         ros::spinOnce();
         rate.sleep();
     }
 
+    // Set offboard mode and arm
     mavros_msgs::SetMode offb_set_mode;
     offb_set_mode.request.custom_mode = "OFFBOARD";
 
@@ -87,8 +101,46 @@ int main(int argc, char **argv)
             }
         }
 
+        // Write node to publish waypoints to a ROS topic
+
+
+        // Subscribe to the waypoints ROS topic
+        // pos_sp = // position setpoint
+
+        // Subscribe to pendulum angle topic
+
+        // Subscribe to state of drone topic
+        // pos_sp_vect = Vector3f(pos_sp.pose.position.x, pos_sp.pose.position.y, pos_sp.pose.position.z);
+        // pos_vect = Vector3f();
+
+        // // Get params
+        // mpc_xy_p = 0.95;
+        // mpc_z_p  = 1.0;
+
+        // // P-position controller
+        // const Vector3f vel_sp_position = (pos_sp_vect - pos_vect).emult(Vector3f(_param_mpc_xy_p.get(), _param_mpc_xy_p.get(),
+        //                 _param_mpc_z_p.get()));
+        // vel_sp_vect = vel_sp_position + vel_sp;
+
+
+        // // Constrain horizontal velocity by prioritizing the velocity component along the
+        // // the desired position setpoint over the feed-forward term.
+        // const Vector2f vel_sp_xy = ControlMath::constrainXY(Vector2f(vel_sp_position),
+        //             Vector2f(_vel_sp - vel_sp_position), _param_mpc_xy_vel_max.get());
+        // vel_sp(0) = vel_sp_xy(0);
+        // vel_sp(1) = vel_sp_xy(1);
+        // // Constrain velocity in z-direction.
+        // vel_sp(2) = math::constrain(vel_sp(2), -_constraints.speed_up, _constraints.speed_down);
+
+
+        // Apply MPC velocity control
+        // accel_sp = // velocity setpoint
+
+
+        // Publish setpoint to MAVROS
         // local_pos_pub.publish(pose);
-        accel_sp_pub.publish(accel_sp);
+        vel_sp_pub.publish(vel_sp);
+        // accel_sp_pub.publish(accel_sp);
 
         ros::spinOnce();
         rate.sleep();
