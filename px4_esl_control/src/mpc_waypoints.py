@@ -1,9 +1,11 @@
 #!/usr/bin/env python
+
 # ROS python API
 import rospy
 
 # import needed geometry messages
 from geometry_msgs.msg import Point, Vector3, PoseStamped, TwistStamped
+
 # import all mavros messages and services
 from mavros_msgs.msg import *
 from mavros_msgs.srv import *
@@ -43,7 +45,7 @@ waypoints = [
 
 
 # Should the waypoints be relative from the initial position (except yaw)?
-relative = False
+relative = True
 # Threshold: How small the error should be before sending the next waypoint
 threshold = 0.2
  # If waypoint_time < 0, will send next waypoint when current one is reached.
@@ -52,6 +54,9 @@ waypoint_time = -1
  # If autonomous is True, this node will automatically arm, switch to OFFBOARD mode, fly and land.
  # If it is False, it waits for the pilot to switch to OFFBOARD mode to fly and does not land.
 autonomous = True
+# If publish_to_mavros is True, node will publish to a MAVROS topic to use build in position controller
+# Else, it will publish to a local ROS topic for another OFFBOARD controller to access position setpoint
+publish_to_mavros = False
 
 # Flight modes class
 # Flight modes are activated using ROS services
@@ -152,7 +157,7 @@ def publish_setpoint(cnt, pub_pos):
 
 def run(argv):
     # initiate node
-    rospy.init_node('waypoint_scheduler_node')
+    rospy.init_node('waypoint_scheduler_node_node')
 
     # flight mode object
     modes = FlightModes()
@@ -173,7 +178,13 @@ def run(argv):
     rospy.Subscriber('mavros/local_position/velocity', TwistStamped, cnt.velCb)
 
     # Setpoint publishers
-    sp_pos_pub = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=1)
+    if publish_to_mavros:
+        # Publish to MAVROS topic directly to use build in controllers
+        sp_pos_pub = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=1)
+    else:
+        # Publish to a local ROS topic to use OFFBOARD controllers
+        sp_pos_pub = rospy.Publisher('/setpoint_raw/local', PositionTarget, queue_size=1)
+
 
     # Arm the drone
     if autonomous:
