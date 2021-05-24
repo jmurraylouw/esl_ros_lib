@@ -11,11 +11,17 @@
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
-// #include "PositionControl.hpp"
+#include <mavros_msgs/PositionTarget.h>
 
+// Subscriber callback functions and variables
 mavros_msgs::State current_state;
-void state_cb(const mavros_msgs::State::ConstPtr& msg){
+void state_callback(const mavros_msgs::State::ConstPtr& msg){
     current_state = *msg;
+}
+mavros_msgs::PositionTarget received_setpoint; // Received setpoint from mpc_waypoints_node
+void setpoint_callback(const mavros_msgs::PositionTarget::ConstPtr& msg){
+    received_setpoint = *msg;
+    ROS_INFO("Position setpoint: [x: %f, y: %f, z: %f]", (*msg).position.x, (*msg).position.y, (*msg).position.z);
 }
 
 int main(int argc, char **argv)
@@ -23,9 +29,13 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "offb_node");
     ros::NodeHandle nh;
 
+    // Subscribers
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>
-            ("mavros/state", 10, state_cb);
+            ("mavros/state", 10, state_callback);
+    ros::Subscriber received_setpoint_sub = nh.subscribe<mavros_msgs::PositionTarget>
+            ("/setpoint_raw/local", 10, setpoint_callback); // Received setpoint from mpc_waypoints
 
+    // Publishers
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>
             ("mavros/setpoint_position/local", 10);
     ros::Publisher vel_sp_pub = nh.advertise<geometry_msgs::Twist>
@@ -33,13 +43,16 @@ int main(int argc, char **argv)
     ros::Publisher accel_sp_pub = nh.advertise<geometry_msgs::Vector3Stamped>
             ("mavros/setpoint_accel/accel", 10); // Message buffer of 10, i.e. 10 messages are kept before throwing away
 
+    // ??? Maybe need to publish yaw setpoint also
+
+    // Services
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>
             ("mavros/cmd/arming");
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>
             ("mavros/set_mode");
 
     // Frequency of Node
-    ros::Rate rate(20.0);
+    ros::Rate rate(50.0);
 
     // wait for FCU connection
     while(ros::ok() && !current_state.connected){
@@ -50,13 +63,13 @@ int main(int argc, char **argv)
     geometry_msgs::PoseStamped pos_sp; // Position set_point
     pos_sp.pose.position.x = 0;
     pos_sp.pose.position.y = 0;
-    pos_sp.pose.position.z = 2;
+    pos_sp.pose.position.z = 20;
 
     geometry_msgs::Twist vel_sp; // Velocity setpoint
     // MAVROS message:  setpoint_velocity/cmd_vel_unstamped (geometry_msgs/Twist)
     vel_sp.linear.x = 0;
-    vel_sp.linear.y = 0;
-    vel_sp.linear.z = 10;
+    vel_sp.linear.y = 0.5;
+    vel_sp.linear.z = 0.5;
 
     geometry_msgs::Vector3Stamped accel_sp; // Acceleration setpoint as a ROS message: http://docs.ros.org/en/api/geometAcceleration setpoint as a ROS messagery_msgs/html/msg/Vector3Stamped.html
     accel_sp.vector.x = 0;
@@ -101,7 +114,7 @@ int main(int argc, char **argv)
             }
         }
 
-        // Write node to publish waypoints to a ROS topic
+        // ??? Figure out which node starts arming and offboard mode etc.
 
 
         // Subscribe to the waypoints ROS topic
