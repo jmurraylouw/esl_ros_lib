@@ -42,8 +42,6 @@ waypoints = [
                 [0, 42, 2, 0],
             ]
 
-
-
 # Should the waypoints be relative from the initial position (except yaw)?
 relative = True
 # Threshold: How small the error should be before sending the next waypoint
@@ -155,122 +153,88 @@ class Controller:
 def publish_setpoint(cnt, pub_pos):
     pub_pos.publish(cnt.pos_sp)
 
-def run(argv):
-    # initiate node
-    rospy.init_node('waypoint_scheduler_node_node')
-
-    # flight mode object
-    modes = FlightModes()
-
-    # controller object
-    cnt = Controller()
-
-    # ROS loop rate
-    rate = rospy.Rate(20.0)
-
-    # Subscribe to drone state
-    rospy.Subscriber('mavros/state', State, cnt.stateCb)
-
-    # Subscribe to drone's local position
-    rospy.Subscriber('mavros/local_position/pose', PoseStamped, cnt.posCb)
-
-    # Subscribe to drone's linear velocity
-    rospy.Subscriber('mavros/local_position/velocity', TwistStamped, cnt.velCb)
-
-    # Setpoint publishers
-    if publish_to_mavros:
-        # Publish to MAVROS topic directly to use build in controllers
-        sp_pos_pub = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=1)
-    else:
-        # Publish to a local ROS topic to use OFFBOARD controllers
-        sp_pos_pub = rospy.Publisher('/setpoint_raw/local', PositionTarget, queue_size=1)
-
-
-    # Arm the drone
-    if autonomous:
-        print("Arming")
-        while not (cnt.state.armed or rospy.is_shutdown()):
-            modes.setArm()
-            rate.sleep()
-        print("Armed\n")
-
-    # activate OFFBOARD mode
-    print("Activate OFFBOARD mode")
-    while not (cnt.state.mode == "OFFBOARD" or rospy.is_shutdown()):
-        # We need to send few setpoint messages, then activate OFFBOARD mode, to take effect
-        k=0
-        while k<10:
-            cnt.updateSp(cnt.local_pos.y, cnt.local_pos.x, -cnt.local_pos.z, cnt.local_yaw)
-            publish_setpoint(cnt, sp_pos_pub)
-            rate.sleep()
-            k = k + 1
-
-        if autonomous:
-            modes.setOffboardMode()
-        rate.sleep()
-    print("OFFBOARD mode activated\n")
-
-    # Save initial position
-    init_pos = Point(cnt.local_pos.x, cnt.local_pos.y, cnt.local_pos.z)
-    if not relative:
-        init_pos = Point(0, 0, 0)
-
-    # ROS main loop
-    current_wp = 0
-    last_time = time.time()
-    print("Following waypoints...")
-    print("Executing waypoint %d / %d" % (current_wp + 1, len(waypoints)))
-    while current_wp < len(waypoints) and not rospy.is_shutdown():
-        y = init_pos.y + waypoints[current_wp][0]
-        x = init_pos.x + waypoints[current_wp][1]
-        z = init_pos.z + waypoints[current_wp][2]
-        yaw = waypoints[current_wp][3]
-
-        cnt.updateSp(init_pos.y + waypoints[current_wp][0], init_pos.x + waypoints[current_wp][1], -init_pos.z - waypoints[current_wp][2], waypoints[current_wp][3])
-        publish_setpoint(cnt, sp_pos_pub)
-        rate.sleep()
-
-        if waypoint_time < 0:
-            if targetReached(x, cnt.local_pos.x, threshold) and targetReached(0, cnt.local_vel.x, threshold) and \
-               targetReached(y, cnt.local_pos.y, threshold) and targetReached(0, cnt.local_vel.y, threshold) and \
-               targetReached(z, cnt.local_pos.z, threshold) and targetReached(0, cnt.local_vel.z, threshold) and \
-               targetReached(yaw, cnt.local_yaw, threshold):
-
-                current_wp = current_wp + 1
-                if current_wp < len(waypoints):
-                    print("Executing waypoint %d / %d" % (current_wp + 1, len(waypoints)))
-        else:
-            current_time = time.time()
-            if current_time - last_time >= waypoint_time:
-                current_wp = current_wp + 1
-                if current_wp < len(waypoints):
-                    print("Executing waypoint %d / %d" % (current_wp + 1, len(waypoints)))
-                last_time = current_time
-    print("Last waypoint reached\n")
-
-    if autonomous:
-        print("Landing")
-        while not (cnt.state.mode == "AUTO.LAND" or rospy.is_shutdown()):
-            modes.setLandMode()
-            rate.sleep()
-        print("Landed\n")
-    else:
-        # Stay at last waypoint until OFFBOARD mode is terminated
-        print("Waiting for pilot to switch out of OFFBOARD mode...")
-        while cnt.state.mode == "OFFBOARD" and not rospy.is_shutdown():
-            cnt.updateSp(init_pos.y + waypoints[current_wp - 1][0], init_pos.x + waypoints[current_wp - 1][1], -init_pos.z - waypoints[current_wp - 1][2], -waypoints[current_wp - 1][3])
-            publish_setpoint(cnt, sp_pos_pub)
-            rate.sleep()
-    print("Done\n")
-
 def targetReached(setpoint, current, threshold):
     return abs(current - setpoint) < threshold
 
 def main(argv):
     try:
-		run(argv)
+        # initiate node
+        rospy.init_node('mpc_waypoint_node')
+
+        # controller object
+        cnt = Controller()
+
+        # ROS loop rate
+        rate = rospy.Rate(20.0)
+
+        # Subscribe to drone state
+        rospy.Subscriber('mavros/state', State, cnt.stateCb)
+
+        # Subscribe to drone's local position
+        rospy.Subscriber('mavros/local_position/pose', PoseStamped, cnt.posCb)
+
+        # Subscribe to drone's linear velocity
+        rospy.Subscriber('mavros/local_position/velocity', TwistStamped, cnt.velCb)
+
+        # Publisher for a setpoint to a local ROS topic for OFFBOARD controllers to access
+        setpoint_pub = rospy.Publisher('/setpoint_raw/local', PositionTarget, queue_size=1)
+
+        # Save initial position
+        init_pos = Point(cnt.local_pos.x, cnt.local_pos.y, cnt.local_pos.z)
+        if not relative:
+            init_pos = Point(0, 0, 0)
+
+        # ROS main loop
+        current_wp = 0
+        last_time = time.time()
+        print("Following waypoints...")
+        print("Executing waypoint %d / %d" % (current_wp + 1, len(waypoints)))
+        while current_wp < len(waypoints) and not rospy.is_shutdown():
+            y = init_pos.y + waypoints[current_wp][0]
+            x = init_pos.x + waypoints[current_wp][1]
+            z = init_pos.z + waypoints[current_wp][2]
+            yaw = waypoints[current_wp][3]
+
+            cnt.updateSp(init_pos.y + waypoints[current_wp][0], init_pos.x + waypoints[current_wp][1], -init_pos.z - waypoints[current_wp][2], waypoints[current_wp][3])
+            publish_setpoint(cnt, setpoint_pub)
+            rate.sleep()
+
+            if waypoint_time < 0:
+                if targetReached(x, cnt.local_pos.x, threshold) and targetReached(0, cnt.local_vel.x, threshold) and \
+                targetReached(y, cnt.local_pos.y, threshold) and targetReached(0, cnt.local_vel.y, threshold) and \
+                targetReached(z, cnt.local_pos.z, threshold) and targetReached(0, cnt.local_vel.z, threshold) and \
+                targetReached(yaw, cnt.local_yaw, threshold):
+
+                    current_wp = current_wp + 1
+                    if current_wp < len(waypoints):
+                        print("Executing waypoint %d / %d" % (current_wp + 1, len(waypoints)))
+            else:
+                current_time = time.time()
+                if current_time - last_time >= waypoint_time:
+                    current_wp = current_wp + 1
+                    if current_wp < len(waypoints):
+                        print("Executing waypoint %d / %d" % (current_wp + 1, len(waypoints)))
+                    last_time = current_time
+        print("Last waypoint reached\n")
+
+        if autonomous:
+            print("Landing")
+            while not (cnt.state.mode == "AUTO.LAND" or rospy.is_shutdown()):
+                modes.setLandMode()
+                rate.sleep()
+            print("Landed\n")
+        else:
+            # Stay at last waypoint until OFFBOARD mode is terminated
+            print("Waiting for pilot to switch out of OFFBOARD mode...")
+            while cnt.state.mode == "OFFBOARD" and not rospy.is_shutdown():
+                cnt.updateSp(init_pos.y + waypoints[current_wp - 1][0], init_pos.x + waypoints[current_wp - 1][1], -init_pos.z - waypoints[current_wp - 1][2], -waypoints[current_wp - 1][3])
+                publish_setpoint(cnt, setpoint_pub)
+                rate.sleep()
+        print("Done\n")
+
     except rospy.ROSInterruptException:
         pass
+
     print("Terminated.\n")
 
 if __name__ == "__main__":
