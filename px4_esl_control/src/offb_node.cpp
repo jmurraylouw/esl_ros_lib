@@ -27,7 +27,7 @@ void state_callback(const mavros_msgs::State::ConstPtr& msg){
 }
 mavros_msgs::PositionTarget received_setpoint; // Received setpoint from mpc_waypoints_node
 void setpoint_callback(const mavros_msgs::PositionTarget::ConstPtr& msg){
-    received_setpoint = *msg;
+    // received_setpoint = *msg;
     // ROS_INFO("Position setpoint: [x: %f, y: %f, z: %f]", (*msg).position.x, (*msg).position.y, (*msg).position.z);
 }
 geometry_msgs::PoseStamped local_position;
@@ -98,7 +98,7 @@ int main(int argc, char **argv)
     // accel_sp.vector.z = 0;
 
     mavros_msgs::PositionTarget setpoint_raw;
-    setpoint_raw.coordinate_frame = mavros_msgs::PositionTarget::FRAME_BODY_NED;
+    setpoint_raw.coordinate_frame = mavros_msgs::PositionTarget::FRAME_LOCAL_NED;
     setpoint_raw.type_mask =    mavros_msgs::PositionTarget::IGNORE_PX |
                                 mavros_msgs::PositionTarget::IGNORE_PY |
                                 mavros_msgs::PositionTarget::IGNORE_PZ |
@@ -108,41 +108,16 @@ int main(int argc, char **argv)
                                 mavros_msgs::PositionTarget::IGNORE_AFX |
                                 mavros_msgs::PositionTarget::IGNORE_AFY |
                                 mavros_msgs::PositionTarget::IGNORE_AFZ |
-                                mavros_msgs::PositionTarget::IGNORE_YAW |
+                                // mavros_msgs::PositionTarget::IGNORE_YAW |
                                 mavros_msgs::PositionTarget::IGNORE_YAW_RATE;
 
-// uint16 IGNORE_PX = 1 # Position ignore flags
-// uint16 IGNORE_PY = 2
-// uint16 IGNORE_PZ = 4
-// uint16 IGNORE_VX = 8 # Velocity vector ignore flags
-// uint16 IGNORE_VY = 16
-// uint16 IGNORE_VZ = 32
-// uint16 IGNORE_AFX = 64 # Acceleration/Force vector ignore flags
-// uint16 IGNORE_AFY = 128
-// uint16 IGNORE_AFZ = 256
-// uint16 FORCE = 512 # Force in af vector flag
-// uint16 IGNORE_YAW = 1024
-// uint16 IGNORE_YAW_RATE = 2048
-
-    setpoint_raw.header.frame_id = "world";
+    // setpoint_raw.header.frame_id = "map";
     setpoint_raw.header.stamp = ros::Time::now();
-    
-    // setpoint_raw.position.x = 1;
-    // setpoint_raw.position.y = 0;
-    // setpoint_raw.position.z = 4;
 
     ROS_INFO("frame: %i", setpoint_raw.coordinate_frame);
     ROS_INFO("check ignore_pz: %i", setpoint_raw.type_mask & mavros_msgs::PositionTarget::IGNORE_PZ);
     ROS_INFO("check ignore_vx: %i", setpoint_raw.type_mask & mavros_msgs::PositionTarget::IGNORE_VX);
     ROS_INFO("type_mask: %i", setpoint_raw.type_mask);
-
-    setpoint_raw.velocity.x = 0.0;
-    setpoint_raw.velocity.y = 1.0;
-    setpoint_raw.velocity.z = 1.0;
-
-    // setpoint_raw.acceleration_or_force.x = nan;
-    // setpoint_raw.acceleration_or_force.y = nan;
-    // setpoint_raw.acceleration_or_force.z = nan;
 
     // Frequency of Node
     ros::Rate rate(50.0);
@@ -163,7 +138,7 @@ int main(int argc, char **argv)
         rate.sleep();
     }
 
-    // Set offboard mode and arm
+    // Set offboard mode
     mavros_msgs::SetMode offb_set_mode;
     offb_set_mode.request.custom_mode = "OFFBOARD";
     
@@ -190,16 +165,18 @@ int main(int argc, char **argv)
         double mpc_z_p  = 1.0;
 
         // Position controller
-        // received_setpoint.position.x = 0;
-        // received_setpoint.position.y = 0;
-        // received_setpoint.position.z = 5;
+        received_setpoint.position.x = 0;
+        received_setpoint.position.y = 0;
+        received_setpoint.position.z = 5;
+
         // Local velocity setpoint:
-        // double vel_sp_x_local = (received_setpoint.position.x - local_position.pose.position.x)*mpc_xy_p;
-        // double vel_sp_y_local = (received_setpoint.position.y - local_position.pose.position.z)*mpc_xy_p;
-        // double vel_sp_z_local = (received_setpoint.position.z - local_position.pose.position.z)*mpc_z_p;        
-        // double vel_sp_x_local = 1.0;
-        // double vel_sp_y_local = 0.0;
-        // double vel_sp_z_local = 0.0;
+        // setpoint_raw.velocity.x = 0.0;
+        // setpoint_raw.velocity.y = 0.0;
+        // setpoint_raw.velocity.z = 0.0;
+        setpoint_raw.velocity.x = (received_setpoint.position.x - local_position.pose.position.x)*mpc_xy_p;
+        setpoint_raw.velocity.y = (received_setpoint.position.y - local_position.pose.position.z)*mpc_xy_p;
+        setpoint_raw.velocity.z = (received_setpoint.position.z - local_position.pose.position.z)*mpc_z_p;        
+
         // // Transform to global velocity and publish:
         // vel_sp.linear.x = vel_sp_x_local*cos(heading * M_PI/180) - vel_sp_y_local*sin(heading * M_PI/180);
         // vel_sp.linear.y = vel_sp_x_local*sin(heading * M_PI/180) + vel_sp_y_local*cos(heading * M_PI/180);

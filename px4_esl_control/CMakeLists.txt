@@ -134,6 +134,7 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(offb_node src/offb_node.cpp)
+add_executable(pos_control_node src/pos_control_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -151,7 +152,10 @@ add_executable(offb_node src/offb_node.cpp)
 # )
 target_link_libraries(offb_node
    ${catkin_LIBRARIES} ${mavros_LIBRARIES} ${mavlink_LIBRARIES}
- )
+)
+target_link_libraries(pos_control_node
+   ${catkin_LIBRARIES} ${mavros_LIBRARIES} ${mavlink_LIBRARIES}
+)
 
 #############
 ## Install ##

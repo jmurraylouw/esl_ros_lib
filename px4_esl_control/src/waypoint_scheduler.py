@@ -17,7 +17,7 @@ import time, sys, math
 # Global variables
 # Waypoints = [N, E, D, Yaw (deg)]. D is entered as postive values, but script converts it to negative
 waypoints = [
-                [0, 0, 2, 0],
+                [1, 0, 2, 0],
                 [16, 0, 2, 0],
                 [16, 12, 2, 0],
                 [16, 0, 2, 0],
