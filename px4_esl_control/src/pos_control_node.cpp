@@ -107,15 +107,30 @@ int main(int argc, char **argv)
     double vel_derv_y = 0.0;
     double vel_derv_z = 0.0;
 
-    // Set readable names:
-    double pos_sp_x;
+    // Declare variables:
+    double pos_sp_x; // Local_NED position setpoint
     double pos_sp_y;
     double pos_sp_z;
 
-    double vel_x = local_velocity.twist.linear.x;
+    double pos_x; // Local_NED position feedback
+    double pos_y;
+    double pos_z;
+
+    double vel_sp_x;
+    double vel_sp_y;
+    double vel_sp_z;
+
+    double vel_x = local_velocity.twist.linear.x; // Local_NED velocity feedback
     double vel_y = local_velocity.twist.linear.y;
     double vel_z = local_velocity.twist.linear.z;
-    
+
+    double vel_err_x;
+    double vel_err_y;
+    double vel_err_z;
+
+    double acc_sp_x;
+    double acc_sp_y;
+    double acc_sp_z;    
     
     ROS_INFO("Started offboard position control");
     while(ros::ok()){        
@@ -130,10 +145,13 @@ int main(int argc, char **argv)
         pos_sp_y = received_setpoint.position.y;
         pos_sp_z = received_setpoint.position.z;
 
+        pos_x = local_position.pose.position.x;
+        pos_y = local_position.pose.position.y;
+        pos_z = local_position.pose.position.z;
+
         vel_x = local_velocity.twist.linear.x;
         vel_y = local_velocity.twist.linear.y;
         vel_z = local_velocity.twist.linear.z;
-
         
         // Coordinate frame notes: 
         // - Input to waypoints_sheduler.py is in NED frame
@@ -153,30 +171,30 @@ int main(int argc, char **argv)
         // setpoint_raw.velocity.y = (received_setpoint.position.y - local_position.pose.position.y)*param_mpc_xy_p;
         // setpoint_raw.velocity.z = (received_setpoint.position.z - local_position.pose.position.z)*param_mpc_z_p;  
         
-        double vel_sp_x = (pos_sp_x - local_position.pose.position.x)*param_mpc_xy_p;
-        double vel_sp_y = (pos_sp_y - local_position.pose.position.y)*param_mpc_xy_p;
-        double vel_sp_z = (pos_sp_z - local_position.pose.position.z)*param_mpc_z_p;  
+        vel_sp_x = (pos_sp_x - local_position.pose.position.x)*param_mpc_xy_p;
+        vel_sp_y = (pos_sp_y - local_position.pose.position.y)*param_mpc_xy_p;
+        vel_sp_z = (pos_sp_z - local_position.pose.position.z)*param_mpc_z_p;  
         ROS_INFO("pos_sp_z:%f, pos_z:%f", received_setpoint.position.z, local_position.pose.position.z );
         
         // Velocity controller:
         // -------------------
 
         // Calculate error
-        double vel_err_x = vel_sp_x - vel_x;
-        double vel_err_y = vel_sp_y - vel_y;
-        double vel_err_z = vel_sp_z - vel_z;
+        vel_err_x = vel_sp_x - vel_x;
+        vel_err_y = vel_sp_y - vel_y;
+        vel_err_z = vel_sp_z - vel_z;
         // ROS_INFO("err: x:%f, y:%f, z:%f", vel_err_x, vel_err_y, vel_err_z );
         
         // PID control
-        double acc_sp_x =     param_mpc_xy_vel_p * vel_err_x 
+        acc_sp_x =     param_mpc_xy_vel_p * vel_err_x 
                             + param_mpc_xy_vel_i * vel_err_int_x
                             + param_mpc_xy_vel_d * vel_derv_x;
 
-        double acc_sp_y =     param_mpc_xy_vel_p * vel_err_y 
+        acc_sp_y =     param_mpc_xy_vel_p * vel_err_y 
                             + param_mpc_xy_vel_i * vel_err_int_y
                             + param_mpc_xy_vel_d * vel_derv_y;
 
-        double acc_sp_z =     param_mpc_z_vel_p * vel_err_z 
+        acc_sp_z =     param_mpc_z_vel_p * vel_err_z 
                             + param_mpc_z_vel_i * vel_err_int_z
                             + param_mpc_z_vel_d * vel_derv_z;
 
@@ -201,8 +219,8 @@ int main(int argc, char **argv)
         setpoint_raw.yaw = received_setpoint.yaw; // Direct feed-through from waypoints_sheduler.py node
 
         // Publish setpoint to MAVROS:    
-        // setpoint_raw_pub.publish(setpoint_raw);
-        local_setpoint_raw_pub.publish(setpoint_raw);
+        // setpoint_raw_pub.publish(setpoint_raw); // Publish to MAVROS
+        local_setpoint_raw_pub.publish(setpoint_raw); // Publish to local ROS topic, not MAVROS
 
         // ??? compare offboard setpoint to onboard mavros/setpoint_raw/target_local
 
