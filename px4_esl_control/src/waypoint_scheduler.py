@@ -150,6 +150,9 @@ class Controller:
 def publish_setpoint(cnt, pub_pos):
     pub_pos.publish(cnt.pos_sp)
 
+def print_waypoint_update(current_wp, waypoints):
+    print("Executing waypoint %d / %d. " % (current_wp + 1, len(waypoints)), "[N, E, D, Yaw] = ", waypoints[current_wp])
+
 def run(argv):
     # initiate node
     rospy.init_node('waypoint_scheduler_node')
@@ -208,7 +211,7 @@ def run(argv):
     current_wp = 0
     last_time = time.time()
     print("Following waypoints...")
-    print("Executing waypoint %d / %d" % (current_wp + 1, len(waypoints)))
+    print_waypoint_update(current_wp, waypoints)
     while current_wp < len(waypoints) and not rospy.is_shutdown():
         y = init_pos.y + waypoints[current_wp][0]
         x = init_pos.x + waypoints[current_wp][1]
@@ -227,13 +230,13 @@ def run(argv):
 
                 current_wp = current_wp + 1
                 if current_wp < len(waypoints):
-                    print("Executing waypoint %d / %d" % (current_wp + 1, len(waypoints)))
+                    print_waypoint_update(current_wp, waypoints)
         else:
             current_time = time.time()
             if current_time - last_time >= waypoint_time:
                 current_wp = current_wp + 1
                 if current_wp < len(waypoints):
-                    print("Executing waypoint %d / %d" % (current_wp + 1, len(waypoints)))
+                    print_waypoint_update(current_wp, waypoints)
                 last_time = current_time
     print("Last waypoint reached\n")
 
