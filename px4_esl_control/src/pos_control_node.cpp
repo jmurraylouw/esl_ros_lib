@@ -77,12 +77,12 @@ int main(int argc, char **argv)
     setpoint_raw.type_mask =    mavros_msgs::PositionTarget::IGNORE_PX |
                                 mavros_msgs::PositionTarget::IGNORE_PY |
                                 mavros_msgs::PositionTarget::IGNORE_PZ |
-                                // mavros_msgs::PositionTarget::IGNORE_VX |
-                                // mavros_msgs::PositionTarget::IGNORE_VY |
-                                // mavros_msgs::PositionTarget::IGNORE_VZ |
-                                mavros_msgs::PositionTarget::IGNORE_AFX |
-                                mavros_msgs::PositionTarget::IGNORE_AFY |
-                                mavros_msgs::PositionTarget::IGNORE_AFZ |
+                                mavros_msgs::PositionTarget::IGNORE_VX |
+                                mavros_msgs::PositionTarget::IGNORE_VY |
+                                mavros_msgs::PositionTarget::IGNORE_VZ |
+                                // mavros_msgs::PositionTarget::IGNORE_AFX |
+                                // mavros_msgs::PositionTarget::IGNORE_AFY |
+                                // mavros_msgs::PositionTarget::IGNORE_AFZ |
                                 // mavros_msgs::PositionTarget::IGNORE_YAW |
                                 mavros_msgs::PositionTarget::IGNORE_YAW_RATE; // You command each parameter that is not ignored. i.e. that is commented out
 
@@ -96,14 +96,14 @@ int main(int argc, char **argv)
 
     // Get params ??? Add code to get this from FCU
     float param_mpc_xy_p = 0.8;
-    float param_mpc_xy_vel_p = 0.09;
-    float param_mpc_xy_vel_i = 0.0; //0.02;
-    float param_mpc_xy_vel_d = 0.0; //0.01;        
+    float param_mpc_xy_vel_p_acc = 0.09;
+    float param_mpc_xy_vel_i_acc = 0.0; //0.02;
+    float param_mpc_xy_vel_d_acc = 0.0; //0.01;        
 
     float param_mpc_z_p  = 1.0;
-    float param_mpc_z_vel_p = 0.2;
-    float param_mpc_z_vel_i = 0.0; //0.02;
-    float param_mpc_z_vel_d = 0.0;
+    float param_mpc_z_vel_p_acc = 0.2;
+    float param_mpc_z_vel_i_acc = 0.0; //0.02;
+    float param_mpc_z_vel_d_acc = 0.0;
 
     // Initialise integral count
     double vel_err_int_x = 0.0;
@@ -211,17 +211,17 @@ int main(int argc, char **argv)
         // ROS_INFO("err: x:%f, y:%f, z:%f", vel_err_x, vel_err_y, vel_err_z );
         
         // PID control
-        acc_sp_x =    param_mpc_xy_vel_p * vel_err_x 
-                    + param_mpc_xy_vel_i * vel_err_int_x
-                    + param_mpc_xy_vel_d * vel_derv_x;
+        // acc_sp_x =    param_mpc_xy_vel_p * vel_err_x 
+        //             + param_mpc_xy_vel_i * vel_err_int_x
+        //             + param_mpc_xy_vel_d * vel_derv_x;
 
-        acc_sp_y =    param_mpc_xy_vel_p * vel_err_y 
-                    + param_mpc_xy_vel_i * vel_err_int_y
-                    + param_mpc_xy_vel_d * vel_derv_y;
+        // acc_sp_y =    param_mpc_xy_vel_p * vel_err_y 
+        //             + param_mpc_xy_vel_i * vel_err_int_y
+        //             + param_mpc_xy_vel_d * vel_derv_y;
 
-        acc_sp_z =    param_mpc_z_vel_p * vel_err_z 
-                    + param_mpc_z_vel_i * vel_err_int_z
-                    + param_mpc_z_vel_d * vel_derv_z;
+        // acc_sp_z =    param_mpc_z_vel_p * vel_err_z 
+        //             + param_mpc_z_vel_i * vel_err_int_z
+        //             + param_mpc_z_vel_d * vel_derv_z;
 
         // Update integral
         vel_err_int_x += vel_err_x * dt;
@@ -236,15 +236,15 @@ int main(int argc, char **argv)
         // setpoint_raw.velocity.x = vel_sp_x;
         // setpoint_raw.velocity.y = vel_sp_y;
         // setpoint_raw.velocity.z = vel_sp_z;
-        setpoint_raw.velocity.x = 0;
-        setpoint_raw.velocity.y = 0;
-        setpoint_raw.velocity.z = 1;
 
         // setpoint_raw.acceleration_or_force.x = acc_sp_x;
         // setpoint_raw.acceleration_or_force.y = acc_sp_y;
         // setpoint_raw.acceleration_or_force.z = acc_sp_z;
+        setpoint_raw.acceleration_or_force.x = 10; // East local (not body)
+        setpoint_raw.acceleration_or_force.y = 0; // North local (not body)
+        setpoint_raw.acceleration_or_force.z = 0; // Up local (not body)
 
-        setpoint_raw.yaw = received_setpoint.yaw; // Direct feed-through from waypoints_sheduler.py node
+        setpoint_raw.yaw = received_setpoint.yaw; // 0 = East local. Direct feed-through from waypoints_sheduler.py node
 
         // Test difference in setpoints
         target_vel_sp_x = target_setpoint_raw.velocity.x;
@@ -263,11 +263,11 @@ int main(int argc, char **argv)
         diff_acc_y = target_acc_sp_y - acc_sp_y;
         diff_acc_z = target_acc_sp_z - acc_sp_z;
 
-        ROS_INFO("x: %.5f, y: %.5f, z: %.5f", diff_vel_x, diff_vel_y, diff_vel_z);
+        // ROS_INFO("x: %.5f, y: %.5f, z: %.5f", diff_vel_x, diff_vel_y, diff_vel_z);
         // ROS_INFO("x: %.3f, y: %.3f, z: %.3f", diff_acc_x, diff_acc_y, diff_acc_z);
         // ROS_INFO("x: %.3f, y: %.3f, z: %.3f", target_acc_sp_x, target_acc_sp_y, target_acc_sp_z);
 
-        // Publish setpoint to MAVROS:    
+        // Publish setpoint:    
         setpoint_raw_pub.publish(setpoint_raw); // Publish to MAVROS
         local_setpoint_raw_pub.publish(setpoint_raw); // Publish to local ROS topic, not MAVROS
 
