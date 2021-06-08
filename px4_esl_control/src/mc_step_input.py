@@ -238,7 +238,7 @@ def run(argv):
 
     parser.add_argument("-t", "--type", help="step input type, should be one of the following: pitch_rate, roll_rate, yaw_rate,   pitch, roll, yaw,   vn, ne, vd,   n, e, d", type=str, nargs=1)
     parser.add_argument("-v", "--value", help="the step input final value in degrees[per second] or meters[per second], depending on the type", type=float, nargs=1)
-    parser.add_argument("-d", "--duration", help="the duration of the step input in seconds, if not provided the duration is infinity", type=float, nargs="?")
+    parser.add_argument("-d", "--duration", help="the duration of the step input in seconds, if not provided the duration is 100", type=float, nargs=1)
 
     args = parser.parse_args()
     if args.type != None and args.value != None:
@@ -247,11 +247,12 @@ def run(argv):
     else:
         print("Please provide a step type and a step final value")
         sys.exit(2)
-    duration = float("inf")
+    duration = 100
 
     # Validate arguments
     if args.duration != None:
-        duration = args.duration
+        duration = args.duration[0]
+        print(duration)
     elif step_type == None or value == None:
         print("Please provide a step type and a step final value")
         sys.exit(2)
