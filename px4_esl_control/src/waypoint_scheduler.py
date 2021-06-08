@@ -105,6 +105,10 @@ class Controller:
         # Instantiate the position setpoint message
         self.pos_sp = PositionTarget()
         # set the flag to control N, E, D and yaw
+        # type mask: http://docs.ros.org/en/api/mavros_msgs/html/msg/PositionTarget.html
+        # set 0 for each parameter you want to command from your setpoint
+        # set 1 for each parameter you want to ignore in your setpoint object
+        # [yaw_rate, yaw, acc_sp_is_force, az, ay, ax, vz, vy, vx, z, y, x]
         self.pos_sp.type_mask = int('100111111000', 2)
         # LOCAL_NED: Inertial frame
         self.pos_sp.coordinate_frame = 1

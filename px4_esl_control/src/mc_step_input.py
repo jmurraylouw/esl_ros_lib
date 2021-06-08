@@ -108,7 +108,7 @@ class Controller:
         # Instantiate the position setpoint message
         self.pos_sp = PositionTarget()
         # set the flag to control height
-        self.pos_sp.type_mask = int('110111111000', 2)
+        self.pos_sp.type_mask = int('100111111000', 2)
         # LOCAL_NED
         self.pos_sp.coordinate_frame = 1
         # initial values for setpoints
@@ -145,6 +145,8 @@ class Controller:
         self.pos_sp.velocity.y = 0
         self.pos_sp.velocity.z = 0
 
+        self.pos_sp.yaw = math.radians(90)
+
         self.att_sp.orientation = Quaternion(*quaternion_from_euler(0.0, 0.0, math.radians(90 + self.init_yaw)))
 
         self.att_sp.body_rate.x = 0
@@ -180,10 +182,14 @@ class Controller:
             self.att_sp.orientation = Quaternion(*quaternion_from_euler(0.0, 0.0, math.radians(90 + step_val)))
 
         # Set mask
+        # type mask: http://docs.ros.org/en/api/mavros_msgs/html/msg/PositionTarget.html
+        # set 0 for each parameter you want to command from your setpoint
+        # set 1 for each parameter you want to ignore in your setpoint object
+        # [yaw_rate, yaw, acc_sp_is_force, az, ay, ax, vz, vy, vx, z, y, x]
         if ALL_STEP_TYPES.index(step_type) in [INDEX_VN, INDEX_VE, INDEX_VD]:
-            self.pos_sp.type_mask = int('110111000111', 2)
+            self.pos_sp.type_mask = int('100111000111', 2)
         elif ALL_STEP_TYPES.index(step_type) in [INDEX_N, INDEX_E, INDEX_D]:
-            self.pos_sp.type_mask = int('110111111000', 2) 
+            self.pos_sp.type_mask = int('100111111000', 2) 
         elif ALL_STEP_TYPES.index(step_type) in [INDEX_PITCH_RATE, INDEX_ROLL_RATE, INDEX_YAW_RATE]:
             self.att_sp.type_mask = int('10111000', 2)
         elif ALL_STEP_TYPES.index(step_type) in [INDEX_PITCH, INDEX_ROLL, INDEX_YAW]:
