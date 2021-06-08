@@ -230,7 +230,7 @@ def run(argv):
     # Parse arguments
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-t", "--type", help="step input type, should be one of the following: [pitch|roll|yaw]_rate, pitch, roll, yaw, v[x|y|z], x, y, z", type=str, nargs=1)
+    parser.add_argument("-t", "--type", help="step input type, should be one of the following: pitch_rate, roll_rate, yaw_rate,   pitch, roll, yaw,   vn, ne, vd,   n, e, d", type=str, nargs=1)
     parser.add_argument("-v", "--value", help="the step input final value in degrees[per second] or meters[per second], depending on the type", type=float, nargs=1)
     parser.add_argument("-d", "--duration", help="the duration of the step input in seconds, if not provided the duration is infinity", type=float, nargs="?")
 
