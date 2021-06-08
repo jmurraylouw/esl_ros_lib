@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # ROS python API
 import rospy
 
@@ -52,6 +52,9 @@ waypoint_time = -1
  # If autonomous is True, this node will automatically arm, switch to OFFBOARD mode, fly and land.
  # If it is False, it waits for the pilot to switch to OFFBOARD mode to fly and does not land.
 autonomous = True
+# If publish_to_mavros is True, will publish pos setpoints directly to mavros
+# If False, will publish to local topic for other node to use
+publish_to_mavros = 1
 
 # Flight modes class
 # Flight modes are activated using ROS services
@@ -65,8 +68,8 @@ class FlightModes:
         try:
             armService = rospy.ServiceProxy('mavros/cmd/arming', mavros_msgs.srv.CommandBool)
             armService(True)
-        except rospy.ServiceException, e:
-            print "Service arming call failed: %s"%e
+        except rospy.ServiceException as e:
+            print("Service arming call failed: %s"%e)
 
     # Switch to OFFBOARD mode
     def setOffboardMode(self):
@@ -74,8 +77,8 @@ class FlightModes:
         try:
             flightModeService = rospy.ServiceProxy('mavros/set_mode', mavros_msgs.srv.SetMode)
             flightModeService(custom_mode='OFFBOARD')
-        except rospy.ServiceException, e:
-            print "service set_mode call failed: %s. Offboard Mode could not be set."%e
+        except rospy.ServiceException as e:
+            print("service set_mode call failed: %s. Offboard Mode could not be set."%e)
 
     # Land the vehicle
     def setLandMode(self):
@@ -83,8 +86,8 @@ class FlightModes:
         try:
             flightModeService = rospy.ServiceProxy('mavros/set_mode', mavros_msgs.srv.SetMode)
             flightModeService(custom_mode='AUTO.LAND')
-        except rospy.ServiceException, e:
-            print "service set_mode call failed: %s. Land Mode could not be set."%e
+        except rospy.ServiceException as e:
+            print("service set_mode call failed: %s. Land Mode could not be set."%e)
 
 # Offboard controller for sending setpoints
 class Controller:
@@ -176,7 +179,10 @@ def run(argv):
     rospy.Subscriber('mavros/local_position/velocity', TwistStamped, cnt.velCb)
 
     # Setpoint publishers
-    sp_pos_pub = rospy.Publisher('/setpoint_raw/local', PositionTarget, queue_size=1)
+    if publish_to_mavros: # Either publish directly to mavros, or publish to local topic for other node to use
+        sp_pos_pub = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=1)
+    else:
+        sp_pos_pub = rospy.Publisher('setpoint_raw/local', PositionTarget, queue_size=1)
 
     # Arm the drone
     if autonomous:
@@ -260,7 +266,7 @@ def targetReached(setpoint, current, threshold):
 
 def main(argv):
     try:
-		run(argv)
+        run(argv)
     except rospy.ROSInterruptException:
         pass
     print("Terminated.\n")
