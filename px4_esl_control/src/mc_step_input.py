@@ -252,7 +252,6 @@ def run(argv):
     # Validate arguments
     if args.duration != None:
         duration = args.duration[0]
-        print(duration)
     elif step_type == None or value == None:
         print("Please provide a step type and a step final value")
         sys.exit(2)
