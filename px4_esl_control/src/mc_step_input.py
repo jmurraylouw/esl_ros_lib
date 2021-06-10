@@ -131,9 +131,6 @@ class Controller:
         self.takeoffHeight = params.getTakeoffHeight()
         self.hoverThrust = params.getHoverThrust()
 
-        # Set initial yaw angle to unknown
-        self.init_yaw = None
-
     # Update setpoint message
     def updateSp(self, step_type, step_val):
         # Set default values
@@ -147,7 +144,7 @@ class Controller:
 
         self.pos_sp.yaw = math.radians(90)
 
-        self.att_sp.orientation = Quaternion(*quaternion_from_euler(0.0, 0.0, math.radians(90 + self.init_yaw)))
+        self.att_sp.orientation = Quaternion(*quaternion_from_euler(0.0, 0.0, math.radians(90)))
 
         self.att_sp.body_rate.x = 0
         self.att_sp.body_rate.y = 0
@@ -175,9 +172,9 @@ class Controller:
         elif ALL_STEP_TYPES.index(step_type) == INDEX_YAW_RATE:
             self.att_sp.body_rate.z = math.radians(step_val)
         elif ALL_STEP_TYPES.index(step_type) == INDEX_ROLL:
-            self.att_sp.orientation = Quaternion(*quaternion_from_euler(math.radians(step_val), 0.0, math.radians(90 + self.init_yaw)))
+            self.att_sp.orientation = Quaternion(*quaternion_from_euler(math.radians(step_val), 0.0, math.radians(90)))
         elif ALL_STEP_TYPES.index(step_type) == INDEX_PITCH:
-            self.att_sp.orientation = Quaternion(*quaternion_from_euler(0.0, math.radians(step_val), math.radians(90 + self.init_yaw)))
+            self.att_sp.orientation = Quaternion(*quaternion_from_euler(0.0, math.radians(step_val), math.radians(90)))
         elif ALL_STEP_TYPES.index(step_type) == INDEX_YAW:
             self.att_sp.orientation = Quaternion(*quaternion_from_euler(0.0, 0.0, math.radians(90 + step_val)))
 
@@ -207,14 +204,12 @@ class Controller:
         self.local_pos.y = msg.pose.position.y
         self.local_pos.z = msg.pose.position.z
 
+        self.local_yaw = -90 + math.degrees(euler_from_quaternion([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w])[2])
+
         self.quat.w = msg.pose.orientation.w
         self.quat.x = msg.pose.orientation.x
         self.quat.y = msg.pose.orientation.y
         self.quat.z = msg.pose.orientation.z
-
-        # Set initial yaw angle
-        if self.init_yaw is None:
-            self.init_yaw = -90 + math.degrees(euler_from_quaternion([self.quat.x, self.quat.y, self.quat.z, self.quat.w])[2])
 
     ## Drone linear velocity callback
     def velCb(self, msg):
@@ -318,7 +313,7 @@ def run(argv):
     if ALL_STEP_TYPES.index(step_type) == INDEX_D:
         final_val = -cnt.takeoffHeight
     elif ALL_STEP_TYPES.index(step_type) == INDEX_YAW:
-        final_val = cnt.init_yaw
+        final_val = math.radians(90)
 
     # ROS main loop - first set value to zero before stepping
     zero_time = 5
