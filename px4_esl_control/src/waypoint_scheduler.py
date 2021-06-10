@@ -16,31 +16,35 @@ import time, sys, math
 
 # Global variables
 # Waypoints = [N, E, D, Yaw (deg)]. D is entered as postive values, but script converts it to negative
+# waypoints = [
+#                 [1, 0, 2, 0],
+#                 [16, 0, 2, 0],
+#                 [16, 12, 2, 0],
+#                 [16, 0, 2, 0],
+#                 [8, 0, 2, 0],
+#                 [8, 8, 2, 0],
+#                 [8, 0, 2, 0],
+#                 [0, 0, 2, 0],
+
+#                 [0, 22, 2, 0],
+
+#                 [4, 26, 2, 0],
+#                 [8, 22, 2, 0],
+#                 [8, 18, 2, 0],
+#                 [12, 14, 2, 0],
+#                 [16, 18, 2, 0],
+
+#                 [16, 30, 2, 0],
+
+#                 [0, 30, 2, 0],
+#                 [0, 42, 2, 0],
+#             ]
 waypoints = [
-                [1, 0, 2, 0],
-                [16, 0, 2, 0],
-                [16, 12, 2, 0],
-                [16, 0, 2, 0],
-                [8, 0, 2, 0],
-                [8, 8, 2, 0],
-                [8, 0, 2, 0],
-                [0, 0, 2, 0],
-
-                [0, 22, 2, 0],
-
-                [4, 26, 2, 0],
-                [8, 22, 2, 0],
-                [8, 18, 2, 0],
-                [12, 14, 2, 0],
-                [16, 18, 2, 0],
-
-                [16, 30, 2, 0],
-
-                [0, 30, 2, 0],
-                [0, 42, 2, 0],
+                [0, 0, 1, 0],
+                [0, 0, 1, 0],
+                [1, 0, 1, 0],
+                [1, 0, 1, 0],
             ]
-
-
 
 # Should the waypoints be relative from the initial position (except yaw)?
 relative = False
@@ -48,7 +52,7 @@ relative = False
 threshold = 0.2
  # If waypoint_time < 0, will send next waypoint when current one is reached.
  # If waypoint_time >= 0, will send next waypoint after the amount of time has passed.
-waypoint_time = -1
+waypoint_time = 10
  # If autonomous is True, this node will automatically arm, switch to OFFBOARD mode, fly and land.
  # If it is False, it waits for the pilot to switch to OFFBOARD mode to fly and does not land.
 autonomous = True
