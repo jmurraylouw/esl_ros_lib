@@ -16,35 +16,35 @@ import time, sys, math
 
 # Global variables
 # Waypoints = [N, E, D, Yaw (deg)]. D is entered as postive values, but script converts it to negative
-# waypoints = [
-#                 [1, 0, 2, 0],
-#                 [16, 0, 2, 0],
-#                 [16, 12, 2, 0],
-#                 [16, 0, 2, 0],
-#                 [8, 0, 2, 0],
-#                 [8, 8, 2, 0],
-#                 [8, 0, 2, 0],
-#                 [0, 0, 2, 0],
-
-#                 [0, 22, 2, 0],
-
-#                 [4, 26, 2, 0],
-#                 [8, 22, 2, 0],
-#                 [8, 18, 2, 0],
-#                 [12, 14, 2, 0],
-#                 [16, 18, 2, 0],
-
-#                 [16, 30, 2, 0],
-
-#                 [0, 30, 2, 0],
-#                 [0, 42, 2, 0],
-#             ]
 waypoints = [
-                [0, 0, 1, 0],
-                [0, 0, 1, 0],
-                [1, 0, 1, 0],
-                [1, 0, 1, 0],
+                [1, 0, 2, 0],
+                [16, 0, 2, 0],
+                [16, 12, 2, 0],
+                [16, 0, 2, 0],
+                [8, 0, 2, 0],
+                [8, 8, 2, 0],
+                [8, 0, 2, 0],
+                [0, 0, 2, 0],
+
+                [0, 22, 2, 0],
+
+                [4, 26, 2, 0],
+                [8, 22, 2, 0],
+                [8, 18, 2, 0],
+                [12, 14, 2, 0],
+                [16, 18, 2, 0],
+
+                [16, 30, 2, 0],
+
+                [0, 30, 2, 0],
+                [0, 42, 2, 0],
             ]
+# waypoints = [
+#                 [0, 0, 1, 0],
+#                 [0, 0, 1, 0],
+#                 [1, 0, 1, 0],
+#                 [1, 0, 1, 0],
+#             ]
 
 # Should the waypoints be relative from the initial position (except yaw)?
 relative = False
@@ -58,7 +58,7 @@ waypoint_time = 10
 autonomous = True
 # If publish_to_mavros is True, will publish pos setpoints directly to mavros
 # If False, will publish to local topic for other node to use
-publish_to_mavros = 1
+publish_to_mavros = 0
 
 # Flight modes class
 # Flight modes are activated using ROS services
@@ -188,23 +188,26 @@ def run(argv):
 
     # Setpoint publishers
     if publish_to_mavros: # Either publish directly to mavros, or publish to local topic for other node to use
+        print("Publishing topic: mavros/setpoint_raw/local (MAVROS)")
         sp_pos_pub = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=1)
     else:
+        print("Publishing topic: /setpoint_raw/local (NOT MAVROS)")
         sp_pos_pub = rospy.Publisher('setpoint_raw/local', PositionTarget, queue_size=1)
 
     # Arm the drone
     if autonomous:
-        print("Arming")
+        print("Arming...")
         while not (cnt.state.armed or rospy.is_shutdown()):
             modes.setArm()
             rate.sleep()
         print("Armed\n")
 
     # activate OFFBOARD mode
-    print("Activate OFFBOARD mode")
+    print("Activating OFFBOARD mode...")
     while not (cnt.state.mode == "OFFBOARD" or rospy.is_shutdown()):
         # We need to send few setpoint messages, then activate OFFBOARD mode, to take effect
-        k=0
+        # PX4 will not activate OFFBOARD until setpoints are received from MAVROS
+        k = 0
         while k<10:
             cnt.updateSp(cnt.local_pos.y, cnt.local_pos.x, -cnt.local_pos.z, cnt.local_yaw)
             publish_setpoint(cnt, sp_pos_pub)

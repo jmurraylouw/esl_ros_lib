@@ -74,7 +74,8 @@ int main(int argc, char **argv)
     // Initialise publisher messages:
     mavros_msgs::PositionTarget setpoint_raw;
     setpoint_raw.coordinate_frame = mavros_msgs::PositionTarget::FRAME_LOCAL_NED;
-    setpoint_raw.type_mask =    mavros_msgs::PositionTarget::IGNORE_PX |
+    setpoint_raw.type_mask =    
+                                mavros_msgs::PositionTarget::IGNORE_PX |
                                 mavros_msgs::PositionTarget::IGNORE_PY |
                                 mavros_msgs::PositionTarget::IGNORE_PZ |
                                 mavros_msgs::PositionTarget::IGNORE_VX |
@@ -85,6 +86,7 @@ int main(int argc, char **argv)
                                 // mavros_msgs::PositionTarget::IGNORE_AFZ |
                                 // mavros_msgs::PositionTarget::IGNORE_YAW |
                                 mavros_msgs::PositionTarget::IGNORE_YAW_RATE; // You command each parameter that is not ignored. i.e. that is commented out
+    ROS_INFO("setpoint_raw, type_mask: %d", setpoint_raw.type_mask);
 
     // setpoint_raw.header.frame_id = "map";
     setpoint_raw.header.stamp = ros::Time::now();
@@ -156,7 +158,7 @@ int main(int argc, char **argv)
     double diff_acc_y;
     double diff_acc_z;
     
-    ROS_INFO("Started offboard position control");
+    ROS_INFO("Starting position control node...");
     while(ros::ok()){        
 
         // Update derivative
@@ -245,7 +247,7 @@ int main(int argc, char **argv)
         setpoint_raw.acceleration_or_force.z = 0; // Up local (not body)
 
         setpoint_raw.yaw = received_setpoint.yaw; // 0 = East local. Direct feed-through from waypoints_sheduler.py node
-
+        
         // Test difference in setpoints
         target_vel_sp_x = target_setpoint_raw.velocity.x;
         target_vel_sp_y = target_setpoint_raw.velocity.y;
@@ -266,6 +268,14 @@ int main(int argc, char **argv)
         // ROS_INFO("x: %.5f, y: %.5f, z: %.5f", diff_vel_x, diff_vel_y, diff_vel_z);
         // ROS_INFO("x: %.3f, y: %.3f, z: %.3f", diff_acc_x, diff_acc_y, diff_acc_z);
         // ROS_INFO("x: %.3f, y: %.3f, z: %.3f", target_acc_sp_x, target_acc_sp_y, target_acc_sp_z);
+
+        // Hard code values:
+        setpoint_raw.position.x = 5;
+        setpoint_raw.position.y = 10;
+        setpoint_raw.position.z = 4;
+        
+        setpoint_raw.yaw = 2; // 0 = East local. Direct feed-through from waypoints_sheduler.py node
+
 
         // Publish setpoint:    
         setpoint_raw_pub.publish(setpoint_raw); // Publish to MAVROS
