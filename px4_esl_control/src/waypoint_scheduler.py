@@ -195,12 +195,12 @@ def run(argv):
         sp_pos_pub = rospy.Publisher('setpoint_raw/local', PositionTarget, queue_size=1)
 
     # Arm the drone
-    if autonomous:
-        print("Arming...")
-        while not (cnt.state.armed or rospy.is_shutdown()):
-            modes.setArm()
-            rate.sleep()
-        print("Armed\n")
+    # if autonomous:
+    #     print("Arming...")
+    #     while not (cnt.state.armed or rospy.is_shutdown()):
+    #         modes.setArm()
+    #         rate.sleep()
+    #     print("Armed\n")
 
     # activate OFFBOARD mode
     print("Activating OFFBOARD mode...")
