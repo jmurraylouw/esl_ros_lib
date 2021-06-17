@@ -70,8 +70,8 @@ class Controller:
         # set 0 for each parameter you want to command from your setpoint
         # set 1 for each parameter you want to ignore in your setpoint object
         # [yaw_rate, yaw, acc_sp_is_force, az, ay, ax, vz, vy, vx, z, y, x]
-        self.sp_raw.type_mask = int('100011111111', 2)
-        
+        self.sp_raw.type_mask = int('100111111000', 2)
+        print('type_mask', self.sp_raw.type_mask)
         # LOCAL_NED: Inertial frame
         self.sp_raw.coordinate_frame = 1
         

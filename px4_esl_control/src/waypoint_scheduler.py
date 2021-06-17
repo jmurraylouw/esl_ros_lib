@@ -48,17 +48,27 @@ waypoints = [
 
 # Should the waypoints be relative from the initial position (except yaw)?
 relative = False
+
 # Threshold: How small the error should be before sending the next waypoint
 threshold = 0.2
+
  # If waypoint_time < 0, will send next waypoint when current one is reached.
  # If waypoint_time >= 0, will send next waypoint after the amount of time has passed.
 waypoint_time = 10
+
  # If autonomous is True, this node will automatically arm, switch to OFFBOARD mode, fly and land.
  # If it is False, it waits for the pilot to switch to OFFBOARD mode to fly and does not land.
 autonomous = True
+
 # If publish_to_mavros is True, will publish pos setpoints directly to mavros
 # If False, will publish to local topic for other node to use
 publish_to_mavros = 0
+
+# If True, automatically arm the drone, Else don't arm the drone
+auto_arm = 0
+
+# If True, automatically activate offboard mode, else don't.
+auto_offboard = 1
 
 # Flight modes class
 # Flight modes are activated using ROS services
@@ -195,29 +205,30 @@ def run(argv):
         sp_pos_pub = rospy.Publisher('setpoint_raw/local', PositionTarget, queue_size=1)
 
     # Arm the drone
-    # if autonomous:
-    #     print("Arming...")
-    #     while not (cnt.state.armed or rospy.is_shutdown()):
-    #         modes.setArm()
-    #         rate.sleep()
-    #     print("Armed\n")
+    if auto_arm:
+        print("Arming...")
+        while not (cnt.state.armed or rospy.is_shutdown()):
+            modes.setArm()
+            rate.sleep()
+        print("Armed\n")
 
     # activate OFFBOARD mode
-    print("Activating OFFBOARD mode...")
-    while not (cnt.state.mode == "OFFBOARD" or rospy.is_shutdown()):
-        # We need to send few setpoint messages, then activate OFFBOARD mode, to take effect
-        # PX4 will not activate OFFBOARD until setpoints are received from MAVROS
-        k = 0
-        while k<10:
-            cnt.updateSp(cnt.local_pos.y, cnt.local_pos.x, -cnt.local_pos.z, cnt.local_yaw)
-            publish_setpoint(cnt, sp_pos_pub)
-            rate.sleep()
-            k = k + 1
+    if auto_offboard:
+        print("Activating OFFBOARD mode...")
+        while not (cnt.state.mode == "OFFBOARD" or rospy.is_shutdown()):
+            # We need to send few setpoint messages, then activate OFFBOARD mode, to take effect
+            # PX4 will not activate OFFBOARD until setpoints are received from MAVROS
+            k = 0
+            while k<10:
+                cnt.updateSp(cnt.local_pos.y, cnt.local_pos.x, -cnt.local_pos.z, cnt.local_yaw)
+                publish_setpoint(cnt, sp_pos_pub)
+                rate.sleep()
+                k = k + 1
 
-        if autonomous:
-            modes.setOffboardMode()
-        rate.sleep()
-    print("OFFBOARD mode activated\n")
+            if autonomous:
+                modes.setOffboardMode()
+            rate.sleep()
+        print("OFFBOARD mode activated\n")
 
     # Save initial position
     init_pos = Point(cnt.local_pos.x, cnt.local_pos.y, cnt.local_pos.z)
