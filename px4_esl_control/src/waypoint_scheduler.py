@@ -15,9 +15,21 @@ from tf.transformations import euler_from_quaternion
 import time, sys, math
 
 # Global variables
+
+relative = False # Should the waypoints be relative from the initial position (except yaw)?
+threshold = 0.2 # How small the error should be before sending the next waypoint
+waypoint_time = 10 # If waypoint_time < 0, send next waypoint after current one is within threshold. Else, send next waypoint after waypoint_time passed.
+
+publish_to_mavros = 1 # If True, publish setpoints to mavros, else, use a different topic for other nodes to use
+auto_arm = 1 # If True, automatically arm the drone, Else don't arm the drone
+auto_takeoff_hold = 1 # If True, automatically switch to offboard mode, takeoff, then hold
+auto_offboard = 1 # If True, automatically activate offboard mode before executing waypoints.
+wait_for_offboard = 1 # If True, wait for offboard_mode before publishing waypoints
+auto_land = 1 # If True, automatically lands after all waypoints
+
 # Waypoints = [N, E, D, Yaw (deg)]. D is entered as postive values, but script converts it to negative
 waypoints = [
-                [1, 0, 2, 0],
+                [0, 0, 2, 0],
                 [16, 0, 2, 0],
                 [16, 12, 2, 0],
                 [16, 0, 2, 0],
@@ -39,36 +51,11 @@ waypoints = [
                 [0, 30, 2, 0],
                 [0, 42, 2, 0],
             ]
-# waypoints = [
-#                 [0, 0, 1, 0],
-#                 [0, 0, 1, 0],
-#                 [1, 0, 1, 0],
-#                 [1, 0, 1, 0],
-#             ]
 
-# Should the waypoints be relative from the initial position (except yaw)?
-relative = False
-
-# Threshold: How small the error should be before sending the next waypoint
-threshold = 0.2
-
- # If waypoint_time < 0, will send next waypoint when current one is reached.
- # If waypoint_time >= 0, will send next waypoint after the amount of time has passed.
-waypoint_time = 10
-
- # If autonomous is True, this node will automatically arm, switch to OFFBOARD mode, fly and land.
- # If it is False, it waits for the pilot to switch to OFFBOARD mode to fly and does not land.
-autonomous = True
-
-# If publish_to_mavros is True, will publish pos setpoints directly to mavros
-# If False, will publish to local topic for other node to use
-publish_to_mavros = 0
-
-# If True, automatically arm the drone, Else don't arm the drone
-auto_arm = 0
-
-# If True, automatically activate offboard mode, else don't.
-auto_offboard = 1
+waypoints = [
+                [0, 0, 2.5, 0],
+                [5, 0, 2.5, 0],
+            ]
 
 # Flight modes class
 # Flight modes are activated using ROS services
@@ -85,6 +72,16 @@ class FlightModes:
         except rospy.ServiceException as e:
             print("Service arming call failed: %s"%e)
 
+    # Switch to HOLD mode
+    def setHoldMode(self):
+        rospy.wait_for_service('mavros/set_mode')
+        try:
+            flightModeService = rospy.ServiceProxy('mavros/set_mode', mavros_msgs.srv.SetMode)
+            flightModeService(custom_mode='AUTO.LOITER')
+
+        except rospy.ServiceException as e:
+            print("setHoldMode - service set_mode call failed: %s. Hold Mode could not be set."%e)
+
     # Switch to OFFBOARD mode
     def setOffboardMode(self):
         rospy.wait_for_service('mavros/set_mode')
@@ -92,7 +89,7 @@ class FlightModes:
             flightModeService = rospy.ServiceProxy('mavros/set_mode', mavros_msgs.srv.SetMode)
             flightModeService(custom_mode='OFFBOARD')
         except rospy.ServiceException as e:
-            print("service set_mode call failed: %s. Offboard Mode could not be set."%e)
+            print("setOffboardMode - service set_mode call failed: %s. Offboard Mode could not be set."%e)
 
     # Land the vehicle
     def setLandMode(self):
@@ -174,6 +171,30 @@ def publish_setpoint(cnt, pub_pos):
 def print_waypoint_update(current_wp, waypoints):
     print("Executing waypoint %d / %d. " % (current_wp + 1, len(waypoints)), "[N, E, D, Yaw] = ", waypoints[current_wp])
 
+def activate_offboard_mode(cnt, modes, rate, mavros_pos_sp_pub):
+    print("Activating OFFBOARD mode...")
+    while not (cnt.state.mode == "OFFBOARD" or rospy.is_shutdown()):
+        # We need to send few setpoint messages, then activate OFFBOARD mode, to take effect
+        # PX4 will not activate OFFBOARD until setpoints are received from MAVROS
+        k = 0
+        while k<10:
+            cnt.updateSp(cnt.local_pos.y, cnt.local_pos.x, -cnt.local_pos.z, cnt.local_yaw)
+            publish_setpoint(cnt, mavros_pos_sp_pub)
+            rate.sleep()
+            k = k + 1
+
+        modes.setOffboardMode()
+        rate.sleep()
+    print("OFFBOARD mode activated")
+
+def activate_hold_mode(cnt, modes, rate, mavros_pos_sp_pub):
+    print("Activating HOLD mode...")
+    while not (cnt.state.mode == "AUTO.LOITER" or rospy.is_shutdown()):
+        modes.setHoldMode()
+        rate.sleep()
+    print("HOLD mode activated")
+
+
 def run(argv):
     # initiate node
     rospy.init_node('waypoint_scheduler_node')
@@ -196,13 +217,14 @@ def run(argv):
     # Subscribe to drone's linear velocity
     rospy.Subscriber('mavros/local_position/velocity', TwistStamped, cnt.velCb)
 
-    # Setpoint publishers
-    if publish_to_mavros: # Either publish directly to mavros, or publish to local topic for other node to use
-        print("Publishing topic: mavros/setpoint_raw/local (MAVROS)")
-        sp_pos_pub = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=1)
-    else:
-        print("Publishing topic: /setpoint_raw/local (NOT MAVROS)")
-        sp_pos_pub = rospy.Publisher('setpoint_raw/local', PositionTarget, queue_size=1)
+    # Publishers
+    mavros_pos_sp_pub = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=10) # Published to MAVROS to control uav
+    transfer_pos_sp_pub = rospy.Publisher('setpoint_raw/local', PositionTarget, queue_size=10) # Topic used by other nodes, NOT mavros
+    
+    # Save initial position
+    init_pos = Point(cnt.local_pos.x, cnt.local_pos.y, cnt.local_pos.z)
+    if not relative:
+        init_pos = Point(0, 0, 0)
 
     # Arm the drone
     if auto_arm:
@@ -210,44 +232,74 @@ def run(argv):
         while not (cnt.state.armed or rospy.is_shutdown()):
             modes.setArm()
             rate.sleep()
-        print("Armed\n")
+        print("Armed")
+        print("")
 
-    # activate OFFBOARD mode
-    if auto_offboard:
-        print("Activating OFFBOARD mode...")
-        while not (cnt.state.mode == "OFFBOARD" or rospy.is_shutdown()):
-            # We need to send few setpoint messages, then activate OFFBOARD mode, to take effect
-            # PX4 will not activate OFFBOARD until setpoints are received from MAVROS
-            k = 0
-            while k<10:
-                cnt.updateSp(cnt.local_pos.y, cnt.local_pos.x, -cnt.local_pos.z, cnt.local_yaw)
-                publish_setpoint(cnt, sp_pos_pub)
-                rate.sleep()
-                k = k + 1
+    # Takeoff and Hold
+    if auto_takeoff_hold:
+        print("Starting takeoff and hold...")
+        activate_offboard_mode(cnt, modes, rate, mavros_pos_sp_pub)
+        print("Takeoff...")
+        while (not rospy.is_shutdown()): # Run until takeoff reached breaks out of while loop
+            y = init_pos.y + waypoints[0][0]
+            x = init_pos.x + waypoints[0][1]
+            z = init_pos.z + waypoints[0][2]
+            yaw = waypoints[0][3]
 
-            if autonomous:
-                modes.setOffboardMode()
+            cnt.updateSp(y, x, -z, yaw) # Note conversion from NED to ENU for mavros (swop x and y. invert sign of z). Publish in ENU frame
+            publish_setpoint(cnt, mavros_pos_sp_pub)
+
+            if targetReached(x, cnt.local_pos.x, threshold) and targetReached(0, cnt.local_vel.x, threshold) and \
+               targetReached(y, cnt.local_pos.y, threshold) and targetReached(0, cnt.local_vel.y, threshold) and \
+               targetReached(z, cnt.local_pos.z, threshold) and targetReached(0, cnt.local_vel.z, threshold) and \
+               targetReached(yaw, cnt.local_yaw, threshold):
+                
+                print("Takeoff complete.")
+                activate_hold_mode(cnt, modes, rate, mavros_pos_sp_pub)
+                
+                break
+
             rate.sleep()
-        print("OFFBOARD mode activated\n")
+        print("")
 
-    # Save initial position
-    init_pos = Point(cnt.local_pos.x, cnt.local_pos.y, cnt.local_pos.z)
-    if not relative:
-        init_pos = Point(0, 0, 0)
+    # Activate OFFBOARD mode
+    if auto_offboard:
+        print("Starting auto-offboard process...")        
+        activate_offboard_mode(cnt, modes, rate, mavros_pos_sp_pub)
+        print("")
+
+    # Wait for OFFBOARD mode before proceding
+    elif wait_for_offboard:
+        print("Waiting for user to switch to OFFBOARD mode on QGC...")
+        while (cnt.state.mode != "OFFBOARD") and not rospy.is_shutdown():
+            rate.sleep()
+        print("User activated OFFBOARD mode")
+        print("")
 
     # ROS main loop
     current_wp = 0
     last_time = time.time()
-    print("Following waypoints...")
+    print("Start publishing waypoints...")
+
+    if publish_to_mavros:
+        print("Publishing setpoint topic: mavros/setpoint_raw/local (MAVROS)")
+    else:
+        print("Publishing setpoint topic: /setpoint_raw/local (NOT MAVROS)")
+
     print_waypoint_update(current_wp, waypoints)
+
     while current_wp < len(waypoints) and not rospy.is_shutdown():
         y = init_pos.y + waypoints[current_wp][0]
         x = init_pos.x + waypoints[current_wp][1]
         z = init_pos.z + waypoints[current_wp][2]
         yaw = waypoints[current_wp][3]
 
-        cnt.updateSp(init_pos.y + waypoints[current_wp][0], init_pos.x + waypoints[current_wp][1], -init_pos.z - waypoints[current_wp][2], waypoints[current_wp][3])
-        publish_setpoint(cnt, sp_pos_pub)
+        cnt.updateSp(y, x, -z, yaw)
+        if publish_to_mavros: # Either publish directly to mavros, or publish to local topic to transfer to other node to use
+            publish_setpoint(cnt, mavros_pos_sp_pub)
+        else:
+            publish_setpoint(cnt, transfer_pos_sp_pub)
+        
         rate.sleep()
 
         if waypoint_time < 0:
@@ -266,22 +318,25 @@ def run(argv):
                 if current_wp < len(waypoints):
                     print_waypoint_update(current_wp, waypoints)
                 last_time = current_time
-    print("Last waypoint reached\n")
+    print("Last waypoint reached")
+    print("")
 
-    if autonomous:
+    if auto_land:
         print("Landing")
         while not (cnt.state.mode == "AUTO.LAND" or rospy.is_shutdown()):
             modes.setLandMode()
             rate.sleep()
-        print("Landed\n")
+        print("Landed")
+        print("")
     else:
         # Stay at last waypoint until OFFBOARD mode is terminated
         print("Waiting for pilot to switch out of OFFBOARD mode...")
-        while cnt.state.mode == "OFFBOARD" and not rospy.is_shutdown():
+        while (cnt.state.mode == "OFFBOARD" or not rospy.is_shutdown()):
             cnt.updateSp(init_pos.y + waypoints[current_wp - 1][0], init_pos.x + waypoints[current_wp - 1][1], -init_pos.z - waypoints[current_wp - 1][2], -waypoints[current_wp - 1][3])
-            publish_setpoint(cnt, sp_pos_pub)
+            publish_setpoint(cnt, mavros_pos_sp_pub)
             rate.sleep()
-    print("Done\n")
+    print("Done")
+    print("")
 
 def targetReached(setpoint, current, threshold):
     return abs(current - setpoint) < threshold
@@ -291,7 +346,7 @@ def main(argv):
         run(argv)
     except rospy.ROSInterruptException:
         pass
-    print("Terminated.\n")
+    print("Terminated\n")
 
 if __name__ == "__main__":
     main(sys.argv[1:])
