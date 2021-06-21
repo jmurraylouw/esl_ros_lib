@@ -18,13 +18,13 @@ import time, sys, math
 
 relative = False # Should the waypoints be relative from the initial position (except yaw)?
 threshold = 0.2 # How small the error should be before sending the next waypoint
-waypoint_time = 10 # If waypoint_time < 0, send next waypoint after current one is within threshold. Else, send next waypoint after waypoint_time passed.
+waypoint_time = 40 # If waypoint_time < 0, send next waypoint after current one is within threshold. Else, send next waypoint after waypoint_time passed.
 
-publish_to_mavros = 1 # If True, publish setpoints to mavros, else, use a different topic for other nodes to use
+publish_to_mavros = 0 # If True, publish setpoints to mavros, else, use a different topic for other nodes to use
 auto_arm = 1 # If True, automatically arm the drone, Else don't arm the drone
 auto_takeoff_hold = 1 # If True, automatically switch to offboard mode, takeoff, then hold
 auto_offboard = 1 # If True, automatically activate offboard mode before executing waypoints.
-wait_for_offboard = 1 # If True, wait for offboard_mode before publishing waypoints
+wait_for_offboard = 0 # If True, wait for manual switch to offboard mode before publishing waypoints
 auto_land = 1 # If True, automatically lands after all waypoints
 
 # Waypoints = [N, E, D, Yaw (deg)]. D is entered as postive values, but script converts it to negative
@@ -55,6 +55,8 @@ waypoints = [
 waypoints = [
                 [0, 0, 2.5, 0],
                 [5, 0, 2.5, 0],
+                [5, 5, 2.5, 0],
+                [5, 5, 7.5, 0],
             ]
 
 # Flight modes class
@@ -171,7 +173,7 @@ def publish_setpoint(cnt, pub_pos):
 def print_waypoint_update(current_wp, waypoints):
     print("Executing waypoint %d / %d. " % (current_wp + 1, len(waypoints)), "[N, E, D, Yaw] = ", waypoints[current_wp])
 
-def activate_offboard_mode(cnt, modes, rate, mavros_pos_sp_pub):
+def activate_offboard_mode(cnt, modes, rate, pos_sp_pub):
     print("Activating OFFBOARD mode...")
     while not (cnt.state.mode == "OFFBOARD" or rospy.is_shutdown()):
         # We need to send few setpoint messages, then activate OFFBOARD mode, to take effect
@@ -179,7 +181,7 @@ def activate_offboard_mode(cnt, modes, rate, mavros_pos_sp_pub):
         k = 0
         while k<10:
             cnt.updateSp(cnt.local_pos.y, cnt.local_pos.x, -cnt.local_pos.z, cnt.local_yaw)
-            publish_setpoint(cnt, mavros_pos_sp_pub)
+            publish_setpoint(cnt, pos_sp_pub)
             rate.sleep()
             k = k + 1
 
@@ -236,14 +238,14 @@ def run(argv):
         print("")
 
     # Takeoff and Hold
-    if auto_takeoff_hold:
+    if auto_takeoff_hold and (abs(cnt.local_pos.z) <= 0.3):
         print("Starting takeoff and hold...")
         activate_offboard_mode(cnt, modes, rate, mavros_pos_sp_pub)
         print("Takeoff...")
         while (not rospy.is_shutdown()): # Run until takeoff reached breaks out of while loop
-            y = init_pos.y + waypoints[0][0]
-            x = init_pos.x + waypoints[0][1]
-            z = init_pos.z + waypoints[0][2]
+            y = init_pos.y
+            x = init_pos.x
+            z = init_pos.z + 2.5
             yaw = waypoints[0][3]
 
             cnt.updateSp(y, x, -z, yaw) # Note conversion from NED to ENU for mavros (swop x and y. invert sign of z). Publish in ENU frame
@@ -264,11 +266,14 @@ def run(argv):
 
     # Activate OFFBOARD mode
     if auto_offboard:
-        print("Starting auto-offboard process...")        
-        activate_offboard_mode(cnt, modes, rate, mavros_pos_sp_pub)
+        print("Starting auto-offboard process...")
+        if publish_to_mavros:        
+            activate_offboard_mode(cnt, modes, rate, mavros_pos_sp_pub)
+        else:
+            activate_offboard_mode(cnt, modes, rate, transfer_pos_sp_pub)
         print("")
 
-    # Wait for OFFBOARD mode before proceding
+    # Wait for manual switch to OFFBOARD mode before proceding
     elif wait_for_offboard:
         print("Waiting for user to switch to OFFBOARD mode on QGC...")
         while (cnt.state.mode != "OFFBOARD") and not rospy.is_shutdown():
@@ -301,6 +306,8 @@ def run(argv):
             publish_setpoint(cnt, transfer_pos_sp_pub)
         
         rate.sleep()
+
+        print("X:%.3f - Y:%.3f - Z:%.3f" % ( (x - cnt.local_pos.x), (y - cnt.local_pos.y), (z - cnt.local_pos.z) ))
 
         if waypoint_time < 0:
             if targetReached(x, cnt.local_pos.x, threshold) and targetReached(0, cnt.local_vel.x, threshold) and \
