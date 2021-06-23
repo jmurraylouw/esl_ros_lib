@@ -98,7 +98,7 @@ def run(argv):
     rospy.Subscriber('mavros/local_position/pose', PoseStamped, cnt.posCb)
 
     # Subscribe to drone's linear velocity
-    rospy.Subscriber('mavros/local_position/velocity_local', TwistStamped, cnt.velCb)
+    rospy.Subscriber('mavros/local_position/velocity_local_local', TwistStamped, cnt.velCb)
 
     # activate OFFBOARD mode
     if activate_offboard:

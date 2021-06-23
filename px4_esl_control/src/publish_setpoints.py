@@ -130,7 +130,7 @@ def run(argv):
     rospy.Subscriber('mavros/local_position/pose', PoseStamped, cnt.posCb)
 
     # Subscribe to drone's linear velocity
-    rospy.Subscriber('mavros/local_position/velocity', TwistStamped, cnt.velCb)
+    rospy.Subscriber('mavros/local_position/velocity_local', TwistStamped, cnt.velCb)
 
     # Setpoint publishers
     if publish_to_mavros: # Either publish directly to mavros, or publish to local topic for other node to use

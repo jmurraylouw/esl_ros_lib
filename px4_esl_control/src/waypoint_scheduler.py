@@ -424,7 +424,7 @@ def run(argv):
     # Subscribers
     rospy.Subscriber('mavros/state', State, cnt.stateCb)
     rospy.Subscriber('mavros/local_position/pose', PoseStamped, cnt.posCb)
-    rospy.Subscriber('mavros/local_position/velocity', TwistStamped, cnt.velCb)
+    rospy.Subscriber('mavros/local_position/velocity_local', TwistStamped, cnt.velCb)
     rospy.Subscriber('simulink_started', Bool, cnt.simulink_started_Cb) # Custom topic to wait for simulink to start first
 
     # Publishers

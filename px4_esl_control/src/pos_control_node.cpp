@@ -68,7 +68,7 @@ int main(int argc, char **argv)
     ros::Subscriber local_position_sub = nh.subscribe<geometry_msgs::PoseStamped>
             ("mavros/local_position/pose", 10, local_position_callback);
     ros::Subscriber local_velocity_sub = nh.subscribe<geometry_msgs::TwistStamped>
-            ("mavros/local_position/velocity", 10, local_velocity_callback);
+            ("mavros/local_position/velocity_local", 10, local_velocity_callback);
 
 
     // Initialise publisher messages:

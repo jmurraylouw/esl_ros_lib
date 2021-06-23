@@ -272,7 +272,7 @@ def run(argv):
     rospy.Subscriber('mavros/local_position/pose', PoseStamped, cnt.posCb)
 
     # Subscribe to drone's linear velocity
-    rospy.Subscriber('mavros/local_position/velocity', TwistStamped, cnt.velCb)
+    rospy.Subscriber('mavros/local_position/velocity_local', TwistStamped, cnt.velCb)
 
     # Setpoint publishers   
     sp_pos_pub = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=1)
