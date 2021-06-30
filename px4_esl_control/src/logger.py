@@ -49,40 +49,58 @@ def append_list_as_row(file_name, list_of_elements):
 class Sub: 
     def __init__(self):
         # Local variables
-        # self.uav_quat = Quaternion()
-        self.payload_quat = Quaternion()
+        self.position = Vector3()
         self.velocity = Vector3()
-        self.acc_sp = Vector3()
         self.pos_sp = Vector3()
+        self.vel_sp = Vector3()
+        self.acc_sp = Vector3()
+        self.payload_quat = Quaternion()
+        self.payload_angles_rate = Vector3()
+        # self.uav_quat = Quaternion()
 
     def link_states_cb(self, msg): # Callback function for link_states subscriber
         # Link states has arrays where index [0,1,2,3] = [ground_plane, base_link, payload, imu_link]
         # self.uav_quat = msg.pose[1].orientation # UAV quaternion
         self.payload_quat = msg.pose[2].orientation # Payload quaternion
         # print(self.uav_quat.x, self.uav_quat.y, self.uav_quat.z, self.uav_quat.w)
-    
+
+        self.payload_angles_rate.x = msg.twist[2].angular.y
+        self.payload_angles_rate.y = msg.twist[2].angular.x
+        self.payload_angles_rate.z = -msg.twist[2].angular.z
+        # print_Vector3(self.velocity)
+
+    def position_cb(self, msg): # Callback function for local position subscriber
+        # Convert from ENU (MAVROS) to NED frame
+        self.position.x = msg.pose.position.y
+        self.position.y = msg.pose.position.x
+        self.position.z = -msg.pose.position.z
+        # print_Vector3(self.position)
+ 
     def velocity_cb(self, msg): # Callback function for local velocity subscriber
         # Convert from ENU (MAVROS) to NED frame
         self.velocity.x = msg.twist.linear.y
         self.velocity.y = msg.twist.linear.x
         self.velocity.z = -msg.twist.linear.z
         # print_Vector3(self.velocity)
-        
-    
-    def acc_sp_cb(self, msg):  # Callback function for acceleration setpoint subscriber
-        # Convert from ENU (MAVROS) to NED frame
-        self.acc_sp.x = msg.acceleration_or_force.y
-        self.acc_sp.y = msg.acceleration_or_force.x
-        self.acc_sp.z = -msg.acceleration_or_force.z
-        # print_Vector3(self.acc_sp) 
 
     def pos_sp_cb(self, msg): # Callback function for position setpoint subscriber
         # Convert from ENU (MAVROS) to NED frame
         self.pos_sp.x = msg.position.y
         self.pos_sp.y = msg.position.x
         self.pos_sp.z = -msg.position.z
-        # print_Vector3(self.pos_sp) 
+        # print_Vector3(self.pos_sp)        
+    
+    def raw_sp_cb(self, msg):  # Callback function for acceleration and velocity setpoint subscriber
+        # Convert from ENU (MAVROS) to NED frame
+        self.vel_sp.x = msg.velocity.y
+        self.vel_sp.y = msg.velocity.x
+        self.vel_sp.z = -msg.velocity.z
+        # print_Vector3(self.vel_sp)    
 
+        self.acc_sp.x = msg.acceleration_or_force.y
+        self.acc_sp.y = msg.acceleration_or_force.x
+        self.acc_sp.z = -msg.acceleration_or_force.z
+        # print_Vector3(self.acc_sp) s
 
 def run(argv):
     # initiate node
@@ -95,9 +113,10 @@ def run(argv):
     sub = Sub()
 
     # Subscribers
-    rospy.Subscriber('gazebo/link_states', LinkStates, sub.link_states_cb) # For payload angles
+    rospy.Subscriber('mavros/local_position/pose', PoseStamped, sub.position_cb)
     rospy.Subscriber('mavros/local_position/velocity_local', TwistStamped, sub.velocity_cb) # For velocity
-    rospy.Subscriber('mavros/setpoint_raw/target_local', PositionTarget, sub.acc_sp_cb) # For acc_sp
+    rospy.Subscriber('mavros/setpoint_raw/target_local', PositionTarget, sub.raw_sp_cb) # For acc_sp
+    rospy.Subscriber('gazebo/link_states', LinkStates, sub.link_states_cb) # For payload angles
     rospy.Subscriber('setpoint_raw/local', PositionTarget, sub.pos_sp_cb) # For pos_sp
 
     # Log file
@@ -115,7 +134,16 @@ def run(argv):
 
     print("Log file:",file_name)
 
-    column_headings = ['current_time',    'velocity.x', 'velocity.y', 'velocity.z',    'acc_sp.x', 'acc_sp.y', 'acc_sp.y',    'payload_angles.x', 'payload_angles.y',    'pos_sp.x', 'pos_sp.y', 'pos_sp.z']
+    column_headings = [ 'current_time',
+                        'position.x', 'position.y', 'position.z',
+                        'velocity.x', 'velocity.y', 'velocity.z',
+                        'pos_sp.x', 'pos_sp.y', 'pos_sp.z',
+                        'vel_sp.x', 'vel_sp.y', 'vel_sp.z', 
+                        'acc_sp.x', 'acc_sp.y', 'acc_sp.y',
+                        'payload_angles.x', 'payload_angles.y', 'payload_angles.z',
+                        'payload_angles_rate.x', 'payload_angles_rate.y', 'payload_angles_rate.z',
+                    ]
+
     append_list_as_row(file_name, column_headings)
 
     rospy.Rate(1).sleep() # Wait a bit, otherwise first row of log is zeros
@@ -127,12 +155,15 @@ def run(argv):
         
         # Get all variables at once
         current_time    = rospy.Time.now().to_sec()
-        # uav_quat        = sub.uav_quat
-        payload_quat    = sub.payload_quat
+        position        = sub.position
         velocity        = sub.velocity
-        acc_sp          = sub.acc_sp
         pos_sp          = sub.pos_sp
-
+        vel_sp          = sub.vel_sp
+        acc_sp          = sub.acc_sp        
+        payload_quat    = sub.payload_quat
+        # uav_quat        = sub.uav_quat
+        payload_angles_rate = sub.payload_angles_rate
+        
         # Convert quat to angles
         payload_angles_tuple = euler_from_quaternion([payload_quat.x, payload_quat.y, payload_quat.z, payload_quat.w], 'sxyz') # Gazebo frame (Drone N = x, E = -y, D = -z)
         
@@ -142,7 +173,16 @@ def run(argv):
         payload_angles.z = -payload_angles_tuple[2]
 
         # Log data for system identification. Print to csv file     
-        new_row = [current_time,   velocity.x, velocity.y, velocity.z,    acc_sp.x, acc_sp.y, acc_sp.z,    payload_angles.x, payload_angles.y,    pos_sp.x, pos_sp.y, pos_sp.z] # New row to append to log file
+        new_row = [ current_time,
+                    position.x, position.y, position.z,
+                    velocity.x, velocity.y, velocity.z,
+                    pos_sp.x, pos_sp.y, pos_sp.z,
+                    vel_sp.x, vel_sp.y, vel_sp.z, 
+                    acc_sp.x, acc_sp.y, acc_sp.y,
+                    payload_angles.x, payload_angles.y, payload_angles.z,
+                    payload_angles_rate.x, payload_angles_rate.y, payload_angles_rate.z, 
+                ]
+
         append_list_as_row(file_name, new_row)
 
         time_passed = rospy.Time.now().to_sec() - current_time 
