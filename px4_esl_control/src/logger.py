@@ -1,144 +1,164 @@
 #!/usr/bin/env python2
 
-## logger.py
-# Run this as node to set offboard mode, start logging data of uav and save as .csv
+## Log SITL data and write to CSV file
+
+## Need this node to gather payload angle and uav data with synced timestamp
+## Need to start PX4 and gazebo in seperate terminals to start gazebo with ROS wrapper:
+
+# Terminal 1:
+# no_sim=1 make px4_sitl_default gazebo_honeybee_payload
+
+# Terminal 2:
+# source Tools/setup_gazebo.bash $(pwd) $(pwd)/build/px4_sitl_default
+# roslaunch gazebo_ros empty_world.launch world_name:=$(pwd)/Tools/sitl_gazebo/worlds/honeybee_payload.world
+
+# Have to include honeybee model in honeybee.world
 
 # ROS python API
 import rospy
 
-# import needed messages
-from geometry_msgs.msg import Point, Vector3, PoseStamped, TwistStamped
-from mavros_msgs.msg import *
-from mavros_msgs.srv import * # services
-from sensor_msgs.msg import TimeReference
+# import messages and services
+from geometry_msgs.msg import Point, Vector3, PoseStamped, TwistStamped, Quaternion
+from mavros_msgs.msg import PositionTarget
+from gazebo_msgs.msg import LinkStates
 
 # import quat and eul transformation
 from tf.transformations import euler_from_quaternion
 
 # import other system/utils
 import time, sys, math
+from csv import writer
+from datetime import datetime
+import os
 
-# parameters
-activate_offboard = 0 # Set to 1 to automatically activate offboard mode
-log_time = 10 # Time to log for [seconds]
+# Global variables
+payload_angles = Vector3()  # x,y,z angles of payload
+log_data = 1 # Log data to csv file or not
 
-# Flight modes class
-# Flight modes are activated using ROS services
-class FlightModes:
+def print_Vector3(vector):
+    print("X:%.3f - Y:%.3f - Z:%.3f" % (vector.x, vector.y, vector.z))
+
+def append_list_as_row(file_name, list_of_elements):
+    # Open file in append mode
+    with open(file_name, 'a+') as write_obj:
+        # Create a writer object from csv module
+        csv_writer = writer(write_obj)
+        # Add contents of list as last row in the csv file
+        csv_writer.writerow(list_of_elements)
+
+# Class for subscribing
+class Sub: 
     def __init__(self):
-        pass
+        # Local variables
+        # self.uav_quat = Quaternion()
+        self.payload_quat = Quaternion()
+        self.velocity = Vector3()
+        self.acc_sp = Vector3()
+        self.pos_sp = Vector3()
 
-    # Switch to OFFBOARD mode
-    def setOffboardMode(self):
-        rospy.wait_for_service('mavros/set_mode')
-        try:
-            flightModeService = rospy.ServiceProxy('mavros/set_mode', mavros_msgs.srv.SetMode)
-            flightModeService(custom_mode='OFFBOARD')
-        except rospy.ServiceException as e:
-            print("service set_mode call failed: %s. Offboard Mode could not be set."%e)
+    def link_states_cb(self, msg): # Callback function for link_states subscriber
+        # Link states has arrays where index [0,1,2,3] = [ground_plane, base_link, payload, imu_link]
+        # self.uav_quat = msg.pose[1].orientation # UAV quaternion
+        self.payload_quat = msg.pose[2].orientation # Payload quaternion
+        # print(self.uav_quat.x, self.uav_quat.y, self.uav_quat.z, self.uav_quat.w)
+    
+    def velocity_cb(self, msg): # Callback function for local velocity subscriber
+        # Convert from ENU (MAVROS) to NED frame
+        self.velocity.x = msg.twist.linear.y
+        self.velocity.y = msg.twist.linear.x
+        self.velocity.z = -msg.twist.linear.z
+        # print_Vector3(self.velocity)
+        
+    
+    def acc_sp_cb(self, msg):  # Callback function for acceleration setpoint subscriber
+        # Convert from ENU (MAVROS) to NED frame
+        self.acc_sp.x = msg.acceleration_or_force.y
+        self.acc_sp.y = msg.acceleration_or_force.x
+        self.acc_sp.z = -msg.acceleration_or_force.z
+        # print_Vector3(self.acc_sp) 
 
-# Offboard controller for sending setpoints
-class Controller:
-    def __init__(self):
-        # Drone state
-        self.state = State()
+    def pos_sp_cb(self, msg): # Callback function for position setpoint subscriber
+        # Convert from ENU (MAVROS) to NED frame
+        self.pos_sp.x = msg.position.y
+        self.pos_sp.y = msg.position.x
+        self.pos_sp.z = -msg.position.z
+        # print_Vector3(self.pos_sp) 
 
-        # A Message for the current local position of the drone
-        self.local_pos = Point(0.0, 0.0, 0.0)
-        self.local_yaw = 0
-
-        # A Message for the current linear velocity of the drone
-        self.local_vel = Vector3(0.0, 0.0, 0.0)
-
-    # Callbacks.
-
-    ## Time callback
-    def timeCb(self, msg):
-        time_ref = msg.time_ref
-
-    ## Drone State callback
-    def stateCb(self, msg):
-        self.state = msg
-
-    ## Drone local position callback
-    def posCb(self, msg):
-        self.local_pos.x = msg.pose.position.x
-        self.local_pos.y = msg.pose.position.y
-        self.local_pos.z = msg.pose.position.z
-
-        # Yaw: Additional 90 because NED and XYZ is rotated 90 degrees in the horizontal plane (align N and X)
-        self.local_yaw = -90 + math.degrees(euler_from_quaternion([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w])[2])
-
-    ## Drone linear velocity callback
-    def velCb(self, msg):
-        self.local_vel.x = msg.twist.linear.x
-        self.local_vel.y = msg.twist.linear.y
-        self.local_vel.z = msg.twist.linear.z
 
 def run(argv):
     # initiate node
-    rospy.init_node('waypoint_scheduler_node')
-
-    # flight mode object
-    modes = FlightModes()
-
-    # controller object
-    cnt = Controller()
+    rospy.init_node('logger_node')
 
     # ROS loop rate
-    rate = rospy.Rate(20.0)
+    rate = rospy.Rate(100.0) # Logging frequency Hz
 
-    # Subscribe to drone state
-    rospy.Subscriber('mavros/time_reference', TimeReference, cnt.timeCb)
+    # Object for subscribing
+    sub = Sub()
 
-    # Subscribe to drone state
-    rospy.Subscriber('mavros/state', State, cnt.stateCb)
+    # Subscribers
+    rospy.Subscriber('gazebo/link_states', LinkStates, sub.link_states_cb) # For payload angles
+    rospy.Subscriber('mavros/local_position/velocity_local', TwistStamped, sub.velocity_cb) # For velocity
+    rospy.Subscriber('mavros/setpoint_raw/target_local', PositionTarget, sub.acc_sp_cb) # For acc_sp
+    rospy.Subscriber('setpoint_raw/local', PositionTarget, sub.pos_sp_cb) # For pos_sp
 
-    # Subscribe to drone's local position
-    rospy.Subscriber('mavros/local_position/pose', PoseStamped, cnt.posCb)
+    # Log file
+    parent_folder = "/home/esl/Masters/Developer/MATLAB/Quad_Sim_Murray/system_id/SITL/honeybee_payload/data"
+    date_folder = datetime.now().strftime("%Y-%m-%d")
+    log_path = os.path.join(parent_folder, date_folder)
+    
+    try: 
+        os.mkdir(log_path) 
+    except OSError as error: 
+        print(error)
+    
+    file_time = datetime.now().strftime("custom_log_%H_%M_%S.csv")
+    file_name = os.path.join(log_path, file_time)    
 
-    # Subscribe to drone's linear velocity
-    rospy.Subscriber('mavros/local_position/velocity_local_local', TwistStamped, cnt.velCb)
+    print("Log file:",file_name)
 
-    # activate OFFBOARD mode
-    if activate_offboard:
-        print("Activate OFFBOARD mode")
-        while not (cnt.state.mode == "OFFBOARD" or rospy.is_shutdown()):
-            modes.setOffboardMode()
-            rate.sleep()
-        print("OFFBOARD mode activated\n")
+    column_headings = ['current_time',    'velocity.x', 'velocity.y', 'velocity.z',    'acc_sp.x', 'acc_sp.y', 'acc_sp.y',    'payload_angles.x', 'payload_angles.y',    'pos_sp.x', 'pos_sp.y', 'pos_sp.z']
+    append_list_as_row(file_name, column_headings)
 
-    # Save initial position
-    init_pos = Point(cnt.local_pos.x, cnt.local_pos.y, cnt.local_pos.z)
+    rospy.Rate(1).sleep() # Wait a bit, otherwise first row of log is zeros
 
-    # ROS main loop
-    start_time = rospy.Time.now().to_sec()
-    print("Start logging...\n")
-    while (not rospy.is_shutdown()): # Run for certain duration and while node is active
-        # print("%f, %f, %f, %f, %f, %f, %f, %f" % \
-        # (start_time - time.time(),
-        # cnt.local_pos.x,
-        # cnt.local_pos.y,
-        # cnt.local_pos.z,
-        # cnt.local_vel.x,
-        # cnt.local_vel.y,
-        # cnt.local_vel.z,
-        # cnt.local_yaw) )  
-        d_time = rospy.Time.now().to_sec() - start_time
-        print(d_time)     
+    print("")
+    print("Start logging...")
 
+    while not rospy.is_shutdown():
+        
+        # Get all variables at once
+        current_time    = rospy.Time.now().to_sec()
+        # uav_quat        = sub.uav_quat
+        payload_quat    = sub.payload_quat
+        velocity        = sub.velocity
+        acc_sp          = sub.acc_sp
+        pos_sp          = sub.pos_sp
+
+        # Convert quat to angles
+        payload_angles_tuple = euler_from_quaternion([payload_quat.x, payload_quat.y, payload_quat.z, payload_quat.w], 'sxyz') # Gazebo frame (Drone N = x, E = -y, D = -z)
+        
+        # Convert to NED local frame (angles are relative to Drone heading)
+        payload_angles.x = payload_angles_tuple[0]
+        payload_angles.y = -payload_angles_tuple[1]
+        payload_angles.z = -payload_angles_tuple[2]
+
+        # Log data for system identification. Print to csv file
+        if log_data:       
+            new_row = [current_time,   velocity.x, velocity.y, velocity.z,    acc_sp.x, acc_sp.y, acc_sp.z,    payload_angles.x, payload_angles.y,    pos_sp.x, pos_sp.y, pos_sp.z] # New row to append to log file
+            append_list_as_row(file_name, new_row)
+
+        time_passed = rospy.Time.now().to_sec() - current_time 
+        if time_passed >= 0.02:
+            print(time_passed)
         
         rate.sleep()
-
-    print("Stop logging\n")
-
-    print("Exit\n")
 
 def main(argv):
     try:
         run(argv)
     except rospy.ROSInterruptException:
         pass
+    print("")
     print("Terminated.\n")
 
 if __name__ == "__main__":
