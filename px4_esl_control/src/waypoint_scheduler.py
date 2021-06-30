@@ -29,7 +29,7 @@ auto_offboard = 1 # If True, automatically activate offboard mode before executi
 wait_for_offboard = 0 # If True, wait for manual switch to offboard mode before publishing waypoints
 auto_land = 0 # If True, automatically lands after all waypoints
 wait_for_simulink = 0 # Used when publish_to_mavros = 1; Wait for Simulink node to start before activating. Comment out Simulink publisher
-waypoint_sequence = 2 # Choose which sequence of waypoints to use
+waypoint_sequence = 3 # Choose which sequence of waypoints to use
 
 # Waypoints = [N, E, D, Yaw (deg)]. D is entered as negative values
 if waypoint_sequence == 1: # Spell 'ESL'
@@ -501,7 +501,7 @@ def run(argv):
 
     # ROS main loop
     current_wp = 0
-    last_time = time.time()
+    last_time = rospy.Time.now().to_sec()
     print("Start publishing waypoints...")
 
     if publish_to_mavros:
@@ -538,7 +538,7 @@ def run(argv):
                 if current_wp < len(waypoints):
                     print_waypoint_update(current_wp, waypoints)
         else:
-            current_time = time.time()
+            current_time = rospy.Time.now().to_sec()
             if current_time - last_time >= waypoints_time[current_wp]:
                 current_wp = current_wp + 1
                 if current_wp < len(waypoints):
