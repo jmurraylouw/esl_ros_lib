@@ -33,7 +33,6 @@ import os
 
 # Global variables
 payload_angles = Vector3()  # x,y,z angles of payload
-log_data = 1 # Log data to csv file or not
 
 def print_Vector3(vector):
     print("X:%.3f - Y:%.3f - Z:%.3f" % (vector.x, vector.y, vector.z))
@@ -142,10 +141,9 @@ def run(argv):
         payload_angles.y = -payload_angles_tuple[1]
         payload_angles.z = -payload_angles_tuple[2]
 
-        # Log data for system identification. Print to csv file
-        if log_data:       
-            new_row = [current_time,   velocity.x, velocity.y, velocity.z,    acc_sp.x, acc_sp.y, acc_sp.z,    payload_angles.x, payload_angles.y,    pos_sp.x, pos_sp.y, pos_sp.z] # New row to append to log file
-            append_list_as_row(file_name, new_row)
+        # Log data for system identification. Print to csv file     
+        new_row = [current_time,   velocity.x, velocity.y, velocity.z,    acc_sp.x, acc_sp.y, acc_sp.z,    payload_angles.x, payload_angles.y,    pos_sp.x, pos_sp.y, pos_sp.z] # New row to append to log file
+        append_list_as_row(file_name, new_row)
 
         time_passed = rospy.Time.now().to_sec() - current_time 
         if time_passed >= 0.02:
