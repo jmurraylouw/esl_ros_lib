@@ -16,6 +16,7 @@
 import rospy
 
 # import messages and services
+from std_msgs.msg import Int64
 from geometry_msgs.msg import Point, Vector3, PoseStamped, TwistStamped, Quaternion
 from mavros_msgs.msg import PositionTarget
 from gazebo_msgs.msg import LinkStates
@@ -30,7 +31,6 @@ from datetime import datetime
 import os
 
 # Global variables
-payload_angles = Vector3()  # x,y,z angles of payload
 log_data = 1 # Log data to csv file or not
 
 def print_Vector3(vector):
@@ -42,9 +42,7 @@ class Sub:
         # Local variables
         # self.uav_quat = Quaternion()
         self.payload_quat = Quaternion()
-        self.velocity = Vector3()
-        self.acc_sp = Vector3()
-        self.pos_sp = Vector3()
+        self.payload_angles_rate = Vector3()
 
     def link_states_cb(self, msg): # Callback function for link_states subscriber
         # Lin
@@ -52,6 +50,12 @@ class Sub:
         # self.uav_quat = msg.pose[1].orientation # UAV quaternion
         self.payload_quat = msg.pose[2].orientation # Payload quaternion
         # print(self.uav_quat.x, self.uav_quat.y, self.uav_quat.z, self.uav_quat.w)
+
+        # Convert from ENU (MAVROS) to NED frame
+        # self.payload_angles_rate.x = msg.twist[2].angular.y
+        # self.payload_angles_rate.y = msg.twist[2].angular.x
+        # self.payload_angles_rate.z = -msg.twist[2].angular.z
+        # print_Vector3(self.velocity)
 
 def run(argv):
     # initiate node
@@ -63,11 +67,18 @@ def run(argv):
     # Object for subscribing
     sub = Sub()
 
+    # Initialise
+    payload_angles = Vector3()  # x,y,z angles of payload
+
     # Subscribers
     rospy.Subscriber('gazebo/link_states', LinkStates, sub.link_states_cb) # For payload angles
 
     # Publishers
-    payload_angles_pub = rospy.Publisher('payload_angles_local', Vector3, queue_size=10) # Publish angles in local NED frame (i.e. only relative to uav yaw)
+    payload_angles_pub      = rospy.Publisher('payload_angles_local', Vector3, queue_size=10) # Publish angles in local NED frame (i.e. only relative to uav yaw)
+    tf_time_pub             = rospy.Publisher('tf_time', Int64, queue_size=10) # Publish angles in local NED frame (i.e. only relative to uav yaw)
+    pub_time_pub             = rospy.Publisher('pub_time', Int64, queue_size=10) # Publish angles in local NED frame (i.e. only relative to uav yaw)
+    
+    # payload_angles_rate_pub = rospy.Publisher('payload_angles_rate_local', Vector3, queue_size=10) # Publish angle rates in local NED frame (i.e. only relative to uav yaw)
     
     print("")
     print("Publishing angles...")
@@ -82,19 +93,15 @@ def run(argv):
 
         # Convert quat to angles
         payload_angles_tuple = euler_from_quaternion([payload_quat.x, payload_quat.y, payload_quat.z, payload_quat.w], 'sxyz') # Gazebo frame (Drone N = x, E = -y, D = -z)
-        
+
         # Convert to NED local frame (angles are relative to Drone heading)
         payload_angles.x = payload_angles_tuple[0]
         payload_angles.y = -payload_angles_tuple[1]
-        payload_angles.z = -payload_angles_tuple[2]
+        payload_angles.z = -payload_angles_tuple[2]    
 
-        # Publish angles to ROS topic
+        # Publish to ROS topic
         payload_angles_pub.publish(payload_angles)
-
-        # Check if there was a large delay
-        time_passed = rospy.Time.now().to_sec() - current_time    
-        if time_passed > 0.01:
-            print(time_passed)
+        # payload_angles_rate_pub.publish(sub.payload_angles_rate) # Already in NED frame from callback function       
 
         rate.sleep()
 

@@ -33,6 +33,7 @@ import os
 
 # Global variables
 payload_angles = Vector3()  # x,y,z angles of payload
+write_obj = open('temp.csv', 'a+') # Temp write object so that it can run close() when terminated
 
 def print_Vector3(vector):
     print("X:%.3f - Y:%.3f - Z:%.3f" % (vector.x, vector.y, vector.z))
@@ -64,6 +65,7 @@ class Sub:
         self.payload_quat = msg.pose[2].orientation # Payload quaternion
         # print(self.uav_quat.x, self.uav_quat.y, self.uav_quat.z, self.uav_quat.w)
 
+        # Convert from ENU (MAVROS) to NED frame
         self.payload_angles_rate.x = msg.twist[2].angular.y
         self.payload_angles_rate.y = msg.twist[2].angular.x
         self.payload_angles_rate.z = -msg.twist[2].angular.z
@@ -130,8 +132,11 @@ def run(argv):
         print(error)
     
     file_time = datetime.now().strftime("custom_log_%H_%M_%S.csv")
-    file_name = os.path.join(log_path, file_time)    
-
+    file_name = os.path.join(log_path, file_time)
+    os.remove('temp.csv') # Delete temp file   
+    write_obj = open(file_name, 'a+') # Object to write with append mode   
+    csv_writer = writer(write_obj) # Create a writer object from csv module
+    
     print("Log file:",file_name)
 
     column_headings = [ 'current_time',
@@ -143,8 +148,9 @@ def run(argv):
                         'payload_angles.x', 'payload_angles.y', 'payload_angles.z',
                         'payload_angles_rate.x', 'payload_angles_rate.y', 'payload_angles_rate.z',
                     ]
-
-    append_list_as_row(file_name, column_headings)
+  
+    csv_writer.writerow(column_headings) # Add contents of list as last row in the csv file
+    # append_list_as_row(file_name, column_headings)
 
     rospy.Rate(1).sleep() # Wait a bit, otherwise first row of log is zeros
 
@@ -183,7 +189,8 @@ def run(argv):
                     payload_angles_rate.x, payload_angles_rate.y, payload_angles_rate.z, 
                 ]
 
-        append_list_as_row(file_name, new_row)
+        csv_writer.writerow(new_row) # Add contents of list as last row in the csv file
+        # append_list_as_row(file_name, new_row)
 
         time_passed = rospy.Time.now().to_sec() - current_time 
         if time_passed >= 0.02:
@@ -196,7 +203,9 @@ def main(argv):
         run(argv)
     except rospy.ROSInterruptException:
         pass
-    print("")
+    print("Closing write object...\n")
+    write_obj.close()
+
     print("Terminated.\n")
 
 if __name__ == "__main__":

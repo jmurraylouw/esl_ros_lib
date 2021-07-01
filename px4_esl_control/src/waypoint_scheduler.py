@@ -29,7 +29,7 @@ auto_offboard = 1 # If True, automatically activate offboard mode before executi
 wait_for_offboard = 0 # If True, wait for manual switch to offboard mode before publishing waypoints
 auto_land = 0 # If True, automatically lands after all waypoints
 wait_for_simulink = 0 # Used when publish_to_mavros = 1; Wait for Simulink node to start before activating. Comment out Simulink publisher
-waypoint_sequence = 3 # Choose which sequence of waypoints to use
+waypoint_sequence = 2 # Choose which sequence of waypoints to use
 
 # Waypoints = [N, E, D, Yaw (deg)]. D is entered as negative values
 if waypoint_sequence == 1: # Spell 'ESL'
@@ -60,11 +60,11 @@ if waypoint_sequence == 1: # Spell 'ESL'
 elif waypoint_sequence == 2: # X step
     waypoints = [
                     [0, 0, -2.5, 0],
-                    [5, 0, -2.5, 0],
-                    [5, 0, -2.5, 0],
-                    [5, 0, -2.5, 0],
+                    [4.4, 0, -2.5, 0],
+                    [4.4, 0, -2.5, 0],
+                    [4.4, 0, -2.5, 0],
                 ]
-    waypoints_time = numpy.ones((len(waypoints),1))*10 # Constant time interval for each waypoints
+    waypoints_time = numpy.ones((len(waypoints),1))*5 # Constant time interval for each waypoints
 else: # For system ID: Random waypoints and time intervals for system identification (from MATLAB script)
     waypoints = [
                     [0, 0, -10, 0],
