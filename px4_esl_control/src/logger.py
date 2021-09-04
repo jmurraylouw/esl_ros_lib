@@ -122,7 +122,7 @@ def run(argv):
     rospy.Subscriber('setpoint_raw/local', PositionTarget, sub.pos_sp_cb) # For pos_sp
 
     # Log file
-    parent_folder = "/home/esl/Masters/Developer/MATLAB/Quad_Sim_Murray/system_id/SITL/honeybee_payload/data"
+    parent_folder = "/home/murray/Masters/Developer/MATLAB/Quad_Sim_Murray/system_id/SITL/honeybee_payload/data"
     date_folder = datetime.now().strftime("%Y-%m-%d")
     log_path = os.path.join(parent_folder, date_folder)
     
