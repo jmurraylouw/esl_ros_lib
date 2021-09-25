@@ -23,13 +23,13 @@ threshold = 0.2 # How small the error should be before sending the next waypoint
 use_threshold = 0 # If True, wait to reach threshold before sending next waypoint, else use waypoint time
 
 publish_to_mavros = 1 # If True, publish setpoints to mavros, else, use a different topic for other nodes to use
-auto_arm = 1 # If True, automatically arm the drone, Else don't arm the drone
-auto_takeoff_hold = 1 # If True, automatically switch to offboard mode, takeoff, then hold
-auto_offboard = 1 # If True, automatically activate offboard mode before executing waypoints.
+auto_arm = 0 # If True, automatically arm the drone, Else don't arm the drone
+auto_takeoff_hold = 0 # If True, automatically switch to offboard mode, takeoff, then hold
+auto_offboard = 0 # If True, automatically activate offboard mode before executing waypoints.
 wait_for_offboard = 0 # If True, wait for manual switch to offboard mode before publishing waypoints
 auto_land = 0 # If True, automatically lands after all waypoints
 wait_for_simulink = 0 # Used when publish_to_mavros = 1; Wait for Simulink node to start before activating. Comment out Simulink publisher
-waypoint_sequence = 2 # Choose which sequence of waypoints to use
+waypoint_sequence = 1 # Choose which sequence of waypoints to use
 
 # Waypoints = [N, E, D, Yaw (deg)]. D is entered as negative values
 if waypoint_sequence == 1: # Spell 'ESL'
