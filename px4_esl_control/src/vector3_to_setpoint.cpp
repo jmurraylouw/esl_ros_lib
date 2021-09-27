@@ -1,11 +1,10 @@
 /**
- * @file pos_control_node.cpp
- * @brief Position control node for offboard control of a quarotor running PX4.
+ * @file vector3_to_setpoint.cpp
+ * @brief Converts a Vector3 message to a setpoint_raw message.
  * Input: 
- * - Local_NED position (MAVROS topic: mavros/local_position/pose)
- * - Local_NED position setpoint (ROS topic: /setpoint_raw/local (not in mavros))
+ * - Vector3 position from simulink node
  * Output: 
- * - Local_NED velocity setpoint (ROS topic: /setpoint_raw/local (not in mavros))
+ * - Local_NED position setpoint (ROS topic: /mavros/setpoint_raw/local
  */
 
 #define _USE_MATH_DEFINES
@@ -59,10 +58,10 @@ int main(int argc, char **argv)
     ROS_INFO("setpoint_raw, type_mask: %d", setpoint_raw.type_mask);
 
     // Frequency of Node
-    float node_freq = 30.0;
+    float node_freq = 100;
     ros::Rate rate(node_freq);
 
-    ROS_INFO("Starting position control node...");
+    ROS_INFO("Starting vector3_to_setpoint node...");
     while(ros::ok()){   
 
         // Receive from simulink
