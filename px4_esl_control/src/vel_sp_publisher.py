@@ -19,7 +19,50 @@ import time, sys, math
 
 publish_to_mavros = 1
 
-
+vel_setpoints = [
+        [0, 0, 0],
+        [0.31472, 0, 0],
+        [-0.5, 0, 0],
+        [0.046882, 0, 0],
+        [0.47059, 0, 0],
+        [-0.5, 0, 0],
+        [0.29221, 0, 0],
+        [0.34913, 0, 0],
+        [-0.5, 0, 0],
+        [-0.32881, 0, 0],
+        [-0.45383, 0, 0],
+        [0.5, 0, 0],
+        [-0.061256, 0, 0],
+        [-0.31313, 0, 0],
+        [0.5, 0, 0],
+        [0.1797, 0, 0],
+        [-0.0016359, 0, 0],
+        [-0.27619, 0, 0],
+        [0.0059571, 0, 0],
+        [0.047216, 0, 0],
+    ]
+vel_setpoints_time = [
+        5,
+        24,
+        15.1067,
+        16,
+        23,
+        23.1475,
+        15,
+        22,
+        24.1279,
+        17,
+        21,
+        30.2405,
+        22,
+        21,
+        15.8466,
+        16,
+        20,
+        10.292,
+        24,
+        17,
+    ]
 # Flight modes class
 # Flight modes are activated using ROS services
 class FlightModes:
@@ -55,7 +98,11 @@ class Controller:
         # Yaw: Additional 90 because NED and XYZ is rotated 90 degrees in the horizontal plane (align N and X)
         self.sp_raw.yaw = math.radians(90)
 
-    # Callbacks.
+    def update_setpoint(self, vn_sp, ve_sp, vd_sp):
+        # Convert velocity setpoints in NED, to mavros setpoint in ENU
+        self.sp_raw.velocity.x = ve_sp
+        self.sp_raw.velocity.y = vn_sp
+        self.sp_raw.velocity.z = -vd_sp
 
     ## Drone State callback
     def stateCb(self, msg):
@@ -76,11 +123,9 @@ class Controller:
         self.local_vel.y = msg.twist.linear.y
         self.local_vel.z = msg.twist.linear.z
 
-def publish_setpoint(cnt, pub_pos):
-    pub_pos.publish(cnt.sp_raw)
 
-def print_waypoint_update(current_wp, waypoints):
-    print("Executing waypoint %d / %d. " % (current_wp + 1, len(waypoints)), "[N, E, D, Yaw] = ", waypoints[current_wp])
+def print_waypoint_update(current_wp, vel_setpoints):
+    print("Executing waypoint %d / %d. " % (current_wp + 1, len(vel_setpoints)), "[N, E, D] = ", vel_setpoints[current_wp], "time interval = ", vel_setpoints_time[current_wp])
 
 def run(argv):
     # initiate node
@@ -115,16 +160,26 @@ def run(argv):
 
     # ROS main loop
     # -------------
+
     last_time = rospy.Time.now().to_sec()
+    current_sp = 0 # Index of active setpoint in arrays: vel_setpoints, vel_setpoints_time
+
     while not rospy.is_shutdown():
         
         current_time = rospy.Time.now().to_sec()
-        if current_time - last_time >= setpoints_time[current_wp]:
-            current_wp = current_wp + 1
-            if current_wp < len(waypoints):
-                print_waypoint_update(current_wp, waypoints)
+        if current_time - last_time >= vel_setpoints_time[current_sp]: # Check if time interval passed
+            
+            current_sp = current_sp + 1
+            
+            if current_sp < len(vel_setpoints):
+                vn = vel_setpoints[current_sp][0]
+                ve = vel_setpoints[current_sp][1]
+                vd = vel_setpoints[current_sp][2]
+                cnt.update_setpoint(vn, ve, vd)
+                print_waypoint_update(current_sp, vel_setpoints)
+            
             last_time = current_time
-        print("Last waypoint reached")
+
         sp_raw_pub.publish(cnt.sp_raw)
         rate.sleep()
 
