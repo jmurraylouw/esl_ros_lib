@@ -8,6 +8,7 @@ import rospy
 # import needed geometry messages
 from geometry_msgs.msg import Point, Vector3, PoseStamped, TwistStamped
 from std_msgs.msg import Bool
+
 # import all mavros messages and services
 from mavros_msgs.msg import *
 from mavros_msgs.srv import *
@@ -41,22 +42,33 @@ class Controller:
     def __init__(self):
         # Drone state
         self.state = State()
+        self.setpoint_raw = PositionTarget()
 
     # Drone State callback
     def stateCb(self, msg):
         self.state = msg
 
+    # Setpoint Raw callback
+    def setpointCb(self, msg):
+        self.setpoint_raw = msg
+
 def run(argv):
+    print("Started auto_offboard node.")
+
     # initiate node
     rospy.init_node('waypoint_scheduler_node')
 
     modes = FlightModes()
     cnt = Controller()
-    rate = rospy.Rate(20.0) # ROS loop rate
+    rate = rospy.Rate(50.0) # ROS loop rate
 
     # Subscribers
     rospy.Subscriber('mavros/state', State, cnt.stateCb)
-    
+    rospy.Subscriber('/mavros/setpoint_raw/local', PositionTarget, cnt.setpointCb) # To see when simulink node starts publishing
+        
+    while ((cnt.setpoint_raw.acceleration_or_force.x == 0) and (cnt.setpoint_raw.acceleration_or_force.y == 0) and (cnt.setpoint_raw.acceleration_or_force.z == 0) and (not rospy.is_shutdown()) ): # Wait for simulink to publish something.
+        rate.sleep()
+
     # Activate OFFBOARD mode
     print("Activating OFFBOARD mode...")
     print("Other node needs to send mavros setpoints for OFFBOARD mode to be accepted...")

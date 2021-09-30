@@ -4,7 +4,7 @@
  * Input: 
  * - Vector3 position from simulink node
  * Output: 
- * - Local_NED position setpoint (ROS topic: /mavros/setpoint_raw/local
+ * - Local_NED acceleration setpoint (ROS topic: /mavros/setpoint_raw/local
  */
 
 #define _USE_MATH_DEFINES
@@ -34,7 +34,7 @@ int main(int argc, char **argv)
 
     // Publisher
     ros::Publisher setpoint_raw_pub = nh.advertise<mavros_msgs::PositionTarget>
-            ("mavros/setpoint_raw/local", 10);
+            ("/mavros/setpoint_raw/local", 10);
 
     // Subscribers
     ros::Subscriber vector3_sub = nh.subscribe<geometry_msgs::Vector3>
@@ -64,9 +64,9 @@ int main(int argc, char **argv)
     ROS_INFO("Starting vector3_to_setpoint node...");
     while(ros::ok()){   
 
-        while(ros::ok() && vector3.x==0 && vector3.y==0 && vector3.y==0 ){
-            rate.sleep();
-        }
+        // while(ros::ok() && vector3.x==0 && vector3.y==0 && vector3.y==0 ){
+        //     rate.sleep();
+        // }
 
         // Receive from simulink
         setpoint_raw.acceleration_or_force.x = vector3.x;
