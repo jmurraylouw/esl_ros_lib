@@ -10,7 +10,7 @@ import rospy
 # import messages and services
 from geometry_msgs.msg import Point, Vector3, PoseStamped, TwistStamped, Quaternion
 from mavros_msgs.msg import PositionTarget
-from gazebo_msgs.msg import LinkStates
+# from gazebo_msgs.msg import LinkStates
 
 # import quat and eul transformation
 from tf.transformations import euler_from_quaternion

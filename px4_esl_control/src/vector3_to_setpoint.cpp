@@ -38,21 +38,21 @@ int main(int argc, char **argv)
 
     // Subscribers
     ros::Subscriber vector3_sub = nh.subscribe<geometry_msgs::Vector3>
-            ("/simulink/pos_sp", 10, vector3_callback); // Received vector3 from Simulink ROS node
+            ("/simulink/acc_sp", 10, vector3_callback); // Received vector3 from Simulink ROS node
     
     // Initialise publisher messages:
     mavros_msgs::PositionTarget setpoint_raw;
     setpoint_raw.coordinate_frame = mavros_msgs::PositionTarget::FRAME_LOCAL_NED;
     setpoint_raw.type_mask =    
-                                // mavros_msgs::PositionTarget::IGNORE_PX |
-                                // mavros_msgs::PositionTarget::IGNORE_PY |
-                                // mavros_msgs::PositionTarget::IGNORE_PZ |
+                                mavros_msgs::PositionTarget::IGNORE_PX |
+                                mavros_msgs::PositionTarget::IGNORE_PY |
+                                mavros_msgs::PositionTarget::IGNORE_PZ |
                                 mavros_msgs::PositionTarget::IGNORE_VX |
                                 mavros_msgs::PositionTarget::IGNORE_VY |
                                 mavros_msgs::PositionTarget::IGNORE_VZ |
-                                mavros_msgs::PositionTarget::IGNORE_AFX |
-                                mavros_msgs::PositionTarget::IGNORE_AFY |
-                                mavros_msgs::PositionTarget::IGNORE_AFZ |
+                                // mavros_msgs::PositionTarget::IGNORE_AFX |
+                                // mavros_msgs::PositionTarget::IGNORE_AFY |
+                                // mavros_msgs::PositionTarget::IGNORE_AFZ |
                                 // mavros_msgs::PositionTarget::IGNORE_YAW |
                                 mavros_msgs::PositionTarget::IGNORE_YAW_RATE; // You command each parameter that is commented out (not ignored)
     ROS_INFO("setpoint_raw, type_mask: %d", setpoint_raw.type_mask);
@@ -65,9 +65,9 @@ int main(int argc, char **argv)
     while(ros::ok()){   
 
         // Receive from simulink
-        setpoint_raw.position.x = vector3.x;
-        setpoint_raw.position.y = vector3.y;
-        setpoint_raw.position.z = vector3.z;
+        setpoint_raw.acceleration_or_force.x = vector3.x;
+        setpoint_raw.acceleration_or_force.y = vector3.y;
+        setpoint_raw.acceleration_or_force.z = vector3.z;
 
         // Set Yaw = North direction
         setpoint_raw.yaw = deg2rad(90);
