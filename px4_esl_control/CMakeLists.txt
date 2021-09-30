@@ -20,19 +20,19 @@ include_directories(
 )
 
 add_library(${PROJECT_NAME}
-  src/pos_control_node.cpp
+  src/vector3_to_setpoint.cpp
 )
 
-add_executable(offb_node src/offb_node.cpp)
-add_executable(pos_control_node src/pos_control_node.cpp)
+# add_executable(offb_node src/offb_node.cpp)
+# add_executable(pos_control_node src/pos_control_node.cpp)
 add_executable(vector3_to_setpoint src/vector3_to_setpoint.cpp)
 
-target_link_libraries(offb_node
-   ${catkin_LIBRARIES} ${mavros_LIBRARIES} ${mavlink_LIBRARIES}
-)
-target_link_libraries(pos_control_node
-   ${catkin_LIBRARIES} ${mavros_LIBRARIES} ${mavlink_LIBRARIES}
-)
+# target_link_libraries(offb_node
+#    ${catkin_LIBRARIES} ${mavros_LIBRARIES} ${mavlink_LIBRARIES}
+# )
+# target_link_libraries(pos_control_node
+#    ${catkin_LIBRARIES} ${mavros_LIBRARIES} ${mavlink_LIBRARIES}
+# )
 target_link_libraries(vector3_to_setpoint
    ${catkin_LIBRARIES} ${mavros_LIBRARIES} ${mavlink_LIBRARIES}
 )
