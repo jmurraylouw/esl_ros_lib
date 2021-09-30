@@ -64,6 +64,10 @@ int main(int argc, char **argv)
     ROS_INFO("Starting vector3_to_setpoint node...");
     while(ros::ok()){   
 
+        while(ros::ok() && vector3.x==0 && vector3.y==0 && vector3.y==0 ){
+            rate.sleep();
+        }
+
         // Receive from simulink
         setpoint_raw.acceleration_or_force.x = vector3.x;
         setpoint_raw.acceleration_or_force.y = vector3.y;
