@@ -18,7 +18,7 @@ from tf.transformations import euler_from_quaternion
 import time, sys, math
 
 publish_to_mavros = 1
-setpoint_sequence = 2
+setpoint_sequence = 1
 
 # Velocity setpoint sequence in NED frame
 if setpoint_sequence == 1: # Random N steps for training
@@ -82,6 +82,16 @@ class FlightModes:
     def __init__(self):
         pass
 
+    # Switch to OFFBOARD mode
+    def setOffboardMode(self):
+        rospy.wait_for_service('mavros/set_mode')
+        try:
+            flightModeService = rospy.ServiceProxy('mavros/set_mode', mavros_msgs.srv.SetMode)
+            flightModeService(custom_mode='OFFBOARD')
+        except rospy.ServiceException as e:
+            print("setOffboardMode - service set_mode call failed: %s. Offboard Mode could not be set."%e)
+
+
 # Offboard controller for sending setpoints
 class Controller:
     def __init__(self):
@@ -136,6 +146,22 @@ class Controller:
         self.local_vel.y = msg.twist.linear.y
         self.local_vel.z = msg.twist.linear.z
 
+def activate_offboard_mode(cnt, modes, rate, sp_raw_pub):
+    print("Activating OFFBOARD mode...")
+    while not (cnt.state.mode == "OFFBOARD" or rospy.is_shutdown()):
+        # We need to send few setpoint messages, then activate OFFBOARD mode, to take effect
+        # PX4 will not activate OFFBOARD until setpoints are received from MAVROS
+        k = 0
+        while (k < 10):
+            cnt.update_setpoint(0, 0, 0)
+            sp_raw_pub.publish(cnt.sp_raw)
+            rate.sleep()
+            k = k + 1
+
+        modes.setOffboardMode()
+        rate.sleep()
+
+    print("OFFBOARD mode activated")
 
 def print_waypoint_update(current_wp, vel_setpoints):
     print("Executing setpoint %d / %d. " % (current_wp + 1, len(vel_setpoints)), "[N, E, D] = ", vel_setpoints[current_wp], "time interval = ", vel_setpoints_time[current_wp])
@@ -179,6 +205,8 @@ def run(argv):
 
     while not rospy.is_shutdown():
         
+        activate_offboard_mode(cnt, modes, rate, sp_raw_pub)
+
         current_time = rospy.Time.now().to_sec()
         if current_time - last_time >= vel_setpoints_time[current_sp]: # Check if time interval passed
             
