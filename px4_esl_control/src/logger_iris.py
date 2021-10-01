@@ -10,7 +10,7 @@ import rospy
 # import messages and services
 from geometry_msgs.msg import Point, Vector3, PoseStamped, TwistStamped, Quaternion
 from mavros_msgs.msg import PositionTarget
-# from gazebo_msgs.msg import LinkStates
+from gazebo_msgs.msg import LinkStates
 
 # import quat and eul transformation
 from tf.transformations import euler_from_quaternion
@@ -50,13 +50,15 @@ class Sub:
         self.simulink_acc_sp = Vector3()
 
     def link_states_cb(self, msg): # Callback function for link_states subscriber
-        # Link states has arrays where index [0,1,2,3] = [ground_plane, base_link, payload, imu_link]
-        # self.uav_quat = msg.pose[1].orientation # UAV quaternion
-        self.payload_quat = msg.pose[2].orientation # Payload quaternion
-        # print(self.uav_quat.x, self.uav_quat.y, self.uav_quat.z, self.uav_quat.w)
-
-        # Convert from ENU (MAVROS) to NED frame
-        # print_Vector3(self.velocity)
+        # Link states has arrays where each index is a different sdf link
+            # 1 - iris::base_link
+            # 2 - iris::/imu_link
+            # 3 - iris::rotor_0
+            # 4 - iris::rotor_1
+            # 5 - iris::rotor_2
+            # 6 - iris::rotor_3
+            # 7 - iris::payload
+        self.payload_quat = msg.pose[7].orientation # Payload quaternion
 
     def position_cb(self, msg): # Callback function for local position subscriber
         # Convert from ENU (MAVROS) to NED frame
@@ -110,7 +112,7 @@ def run(argv):
     rospy.Subscriber('mavros/local_position/pose', PoseStamped, sub.position_cb)
     rospy.Subscriber('mavros/local_position/velocity_local', TwistStamped, sub.velocity_cb) # For velocity
     rospy.Subscriber('mavros/setpoint_raw/target_local', PositionTarget, sub.raw_sp_cb) # For acc_sp
-    # rospy.Subscriber('gazebo/link_states', LinkStates, sub.link_states_cb) # For payload angles
+    rospy.Subscriber('gazebo/link_states', LinkStates, sub.link_states_cb) # For payload angles
     rospy.Subscriber('setpoint_raw/local', PositionTarget, sub.pos_sp_cb) # For pos_sp
     rospy.Subscriber('/simulink/acc_sp', Vector3, sub.simulink_acc_sp_cb) # For pos_sp
 
@@ -163,7 +165,6 @@ def run(argv):
         vel_sp          = sub.vel_sp
         acc_sp          = sub.acc_sp        
         payload_quat    = sub.payload_quat
-        # uav_quat        = sub.uav_quat
         simulink_acc_sp = sub.simulink_acc_sp
         
         # Convert quat to angles

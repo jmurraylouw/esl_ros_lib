@@ -31,12 +31,10 @@
 	</include>
 
     <!-- Custom nodes: -->
-    <!-- <node name="payload_angle"          pkg="px4_esl_control"  type="payload_angle.py"/> -->
-    <!-- <node name="waypoint_scheduler"     pkg="px4_esl_control"  type="waypoint_scheduler.py"/> -->
-    <!-- <node name="vel_sp_publisher"       pkg="px4_esl_control"  type="vel_sp_publisher.py"/> -->
-    <node name="logger_iris"            pkg="px4_esl_control"  type="logger_iris.py"/>
     <node name="vector3_to_setpoint"    pkg="px4_esl_control"  type="vector3_to_setpoint"/>
     <node name="auto_offboard"          pkg="px4_esl_control"  type="auto_offboard.py"/>
+    <node name="logger_iris"            pkg="px4_esl_control"  type="logger_iris.py"/>
+    <node name="payload_angle_iris"          pkg="px4_esl_control"  type="payload_angle_iris.py"/>
     
     <!-- Dont run vector3_to_setpoint and vel_sp_publisher in the same run. They both publish setpoint_raw -->
 
