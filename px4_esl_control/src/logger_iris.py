@@ -47,6 +47,7 @@ class Sub:
         self.acc_sp = Vector3()
         self.payload_quat = Quaternion()
         # self.uav_quat = Quaternion()
+        self.simulink_acc_sp = Vector3()
 
     def link_states_cb(self, msg): # Callback function for link_states subscriber
         # Link states has arrays where index [0,1,2,3] = [ground_plane, base_link, payload, imu_link]
@@ -90,6 +91,11 @@ class Sub:
         self.acc_sp.z = -msg.acceleration_or_force.z
         # print_Vector3(self.acc_sp) s
 
+    def simulink_acc_sp_cb(self, msg): # Callback for acc_sp sent from Simulink node
+        self.simulink_acc_sp.x = msg.x
+        self.simulink_acc_sp.y = msg.y
+        self.simulink_acc_sp.z = msg.z
+        
 def run(argv):
     # initiate node
     rospy.init_node('logger_node')
@@ -106,9 +112,10 @@ def run(argv):
     rospy.Subscriber('mavros/setpoint_raw/target_local', PositionTarget, sub.raw_sp_cb) # For acc_sp
     # rospy.Subscriber('gazebo/link_states', LinkStates, sub.link_states_cb) # For payload angles
     rospy.Subscriber('setpoint_raw/local', PositionTarget, sub.pos_sp_cb) # For pos_sp
+    rospy.Subscriber('/simulink/acc_sp', Vector3, sub.simulink_acc_sp_cb) # For pos_sp
 
     # Log file
-    parent_folder = "/home/honeybee/sys_id/data"
+    parent_folder = "/home/honeybee/sys_id/data" # Folder on Jetson Nano
     # parent_folder = "/home/murray/sys_id/data"
     
     date_folder = datetime.now().strftime("%Y-%m-%d")
@@ -127,6 +134,7 @@ def run(argv):
     
     print("Log file:",file_name)
 
+    # Only append to this list. Other scripts depend on order of columns, not heading names
     column_headings = [ 'current_time',
                         'position.x', 'position.y', 'position.z',
                         'velocity.x', 'velocity.y', 'velocity.z',
@@ -134,6 +142,7 @@ def run(argv):
                         'vel_sp.x', 'vel_sp.y', 'vel_sp.z', 
                         'acc_sp.x', 'acc_sp.y', 'acc_sp.y',
                         'payload_angles.x', 'payload_angles.y', 'payload_angles.z',
+                        'simulink_acc_sp.x', 'simulink_acc_sp.y', 'simulink_acc_sp.y',
                     ]
   
     csv_writer.writerow(column_headings) # Add contents of list as last row in the csv file
@@ -146,7 +155,7 @@ def run(argv):
 
     while not rospy.is_shutdown():
         
-        # Get all variables at once
+        # Get all variables at once to minimise difference in timing after calculations
         current_time    = rospy.Time.now().to_sec()
         position        = sub.position
         velocity        = sub.velocity
@@ -155,6 +164,7 @@ def run(argv):
         acc_sp          = sub.acc_sp        
         payload_quat    = sub.payload_quat
         # uav_quat        = sub.uav_quat
+        simulink_acc_sp = sub.simulink_acc_sp
         
         # Convert quat to angles
         payload_angles_tuple = euler_from_quaternion([payload_quat.x, payload_quat.y, payload_quat.z, payload_quat.w], 'sxyz') # Gazebo frame (Drone N = x, E = -y, D = -z)
@@ -172,6 +182,7 @@ def run(argv):
                     vel_sp.x, vel_sp.y, vel_sp.z, 
                     acc_sp.x, acc_sp.y, acc_sp.y,
                     payload_angles.x, payload_angles.y, payload_angles.z,
+                    simulink_acc_sp.x, simulink_acc_sp.y, simulink_acc_sp.z,
                 ]
 
         csv_writer.writerow(new_row) # Add contents of list as last row in the csv file

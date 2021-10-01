@@ -18,51 +18,64 @@ from tf.transformations import euler_from_quaternion
 import time, sys, math
 
 publish_to_mavros = 1
+setpoint_sequence = 2
 
-vel_setpoints = [
-        [0, 0, 0],
-        [0.31472, 0, 0],
-        [-0.5, 0, 0],
-        [0.046882, 0, 0],
-        [0.47059, 0, 0],
-        [-0.5, 0, 0],
-        [0.29221, 0, 0],
-        [0.34913, 0, 0],
-        [-0.5, 0, 0],
-        [-0.32881, 0, 0],
-        [-0.45383, 0, 0],
-        [0.5, 0, 0],
-        [-0.061256, 0, 0],
-        [-0.31313, 0, 0],
-        [0.5, 0, 0],
-        [0.1797, 0, 0],
-        [-0.0016359, 0, 0],
-        [-0.27619, 0, 0],
-        [0.0059571, 0, 0],
-        [0.047216, 0, 0],
-    ]
-vel_setpoints_time = [
-        5,
-        24,
-        15.1067,
-        16,
-        23,
-        23.1475,
-        15,
-        22,
-        24.1279,
-        17,
-        21,
-        30.2405,
-        22,
-        21,
-        15.8466,
-        16,
-        20,
-        10.292,
-        24,
-        17,
-    ]
+# Velocity setpoint sequence in NED frame
+if setpoint_sequence == 1: # Random N steps for training
+    vel_setpoints = [
+            [0, 0, 0],
+            [0.31472, 0, 0],
+            [-0.5, 0, 0],
+            [0.046882, 0, 0],
+            [0.47059, 0, 0],
+            [-0.5, 0, 0],
+            [0.29221, 0, 0],
+            [0.34913, 0, 0],
+            [-0.5, 0, 0],
+            [-0.32881, 0, 0],
+            [-0.45383, 0, 0],
+            [0.5, 0, 0],
+            [-0.061256, 0, 0],
+            [-0.31313, 0, 0],
+            [0.5, 0, 0],
+            [0.1797, 0, 0],
+            [-0.0016359, 0, 0],
+            [-0.27619, 0, 0],
+            [0.0059571, 0, 0],
+            [0.047216, 0, 0],
+        ]
+    vel_setpoints_time = [
+            5,
+            24,
+            15.1067,
+            16,
+            23,
+            23.1475,
+            15,
+            22,
+            24.1279,
+            17,
+            21,
+            30.2405,
+            22,
+            21,
+            15.8466,
+            16,
+            20,
+            10.292,
+            24,
+            17,
+        ]
+elif setpoint_sequence == 2: # Single step
+    vel_setpoints = [
+            [1, 0, 0],
+            [1, 0, 0],
+        ]
+    vel_setpoints_time = [
+            30,
+            30,
+        ]
+
 # Flight modes class
 # Flight modes are activated using ROS services
 class FlightModes:
@@ -125,11 +138,11 @@ class Controller:
 
 
 def print_waypoint_update(current_wp, vel_setpoints):
-    print("Executing waypoint %d / %d. " % (current_wp + 1, len(vel_setpoints)), "[N, E, D] = ", vel_setpoints[current_wp], "time interval = ", vel_setpoints_time[current_wp])
+    print("Executing setpoint %d / %d. " % (current_wp + 1, len(vel_setpoints)), "[N, E, D] = ", vel_setpoints[current_wp], "time interval = ", vel_setpoints_time[current_wp])
 
 def run(argv):
     # initiate node
-    rospy.init_node('waypoint_scheduler_node')
+    rospy.init_node('vel_sp_publisher')
 
     # flight mode object
     modes = FlightModes()

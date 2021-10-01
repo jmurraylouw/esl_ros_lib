@@ -68,7 +68,7 @@ int main(int argc, char **argv)
         //     rate.sleep();
         // }
 
-        // Receive from simulink
+        // Receive from simulink and publish in same corodinate frame
         setpoint_raw.acceleration_or_force.x = vector3.x;
         setpoint_raw.acceleration_or_force.y = vector3.y;
         setpoint_raw.acceleration_or_force.z = vector3.z;

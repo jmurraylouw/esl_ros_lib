@@ -21,6 +21,7 @@ import time, sys, math
 import numpy
 
 # Global variables
+wait_for_mpc_node = 1 # Wait for MPC node to start before activating OFFBOARD mode
 
 # Flight modes class
 # Flight modes are activated using ROS services
@@ -65,9 +66,10 @@ def run(argv):
     # Subscribers
     rospy.Subscriber('mavros/state', State, cnt.stateCb)
     rospy.Subscriber('/mavros/setpoint_raw/local', PositionTarget, cnt.setpointCb) # To see when simulink node starts publishing
-        
-    while ((cnt.setpoint_raw.acceleration_or_force.x == 0) and (cnt.setpoint_raw.acceleration_or_force.y == 0) and (cnt.setpoint_raw.acceleration_or_force.z == 0) and (not rospy.is_shutdown()) ): # Wait for simulink to publish something.
-        rate.sleep()
+
+    if wait_for_mpc_node:    
+        while ((cnt.setpoint_raw.acceleration_or_force.x == 0) and (cnt.setpoint_raw.acceleration_or_force.y == 0) and (cnt.setpoint_raw.acceleration_or_force.z == 0) and (not rospy.is_shutdown()) ): # Wait for simulink to publish something.
+            rate.sleep()
 
     # Activate OFFBOARD mode
     print("Activating OFFBOARD mode...")

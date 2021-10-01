@@ -38,4 +38,6 @@
     <node name="vector3_to_setpoint"    pkg="px4_esl_control"  type="vector3_to_setpoint"/>
     <node name="auto_offboard"          pkg="px4_esl_control"  type="auto_offboard.py"/>
     
+    <!-- Dont run vector3_to_setpoint and vel_sp_publisher in the same run. They both publish setpoint_raw -->
+
 </launch>
