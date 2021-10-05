@@ -9,8 +9,7 @@ import rospy
 
 # import messages and services
 from geometry_msgs.msg import Point, Vector3, PoseStamped, TwistStamped, Quaternion
-from mavros_msgs.msg import PositionTarget
-from gazebo_msgs.msg import LinkStates
+from mavros_msgs.msg import PositionTarget, OpticalFlowRad
 
 # import quat and eul transformation
 from tf.transformations import euler_from_quaternion
@@ -20,8 +19,10 @@ import time, sys, math
 from csv import writer
 from datetime import datetime
 import os
+import getpass
 
 # Global variables
+username = getpass.getuser()
 payload_angles = Vector3()  # x,y,z angles of payload
 write_obj = open('temp.csv', 'a+') # Temp write object so that it can run close() when terminated
 
@@ -45,20 +46,19 @@ class Sub:
         self.pos_sp = Vector3()
         self.vel_sp = Vector3()
         self.acc_sp = Vector3()
-        self.payload_quat = Quaternion()
+        self.payload_euler = Vector3()
+        # self.payload_quat = Quaternion()
         # self.uav_quat = Quaternion()
         self.simulink_acc_sp = Vector3()
+        self.last_pub_time = rospy.Time.now().to_nsec()
 
-    def link_states_cb(self, msg): # Callback function for link_states subscriber
-        # Link states has arrays where each index is a different sdf link
-            # 1 - iris::base_link
-            # 2 - iris::/imu_link
-            # 3 - iris::rotor_0
-            # 4 - iris::rotor_1
-            # 5 - iris::rotor_2
-            # 6 - iris::rotor_3
-            # 7 - iris::payload
-        self.payload_quat = msg.pose[7].orientation # Payload quaternion
+    def payload_angle_cb(self, msg): # Callback function for payload angle (Euler)
+        # Already in NED frame
+        # Payload Euler angles hidden in optical flow messages
+        self.payload_euler.x = msg.integrated_xgyro
+        self.payload_euler.y = msg.integrated_ygyro
+        self.payload_euler.z = msg.integrated_zgyro
+        # print_Vector3(self.payload_euler)
 
     def position_cb(self, msg): # Callback function for local position subscriber
         # Convert from ENU (MAVROS) to NED frame
@@ -112,13 +112,15 @@ def run(argv):
     rospy.Subscriber('mavros/local_position/pose', PoseStamped, sub.position_cb)
     rospy.Subscriber('mavros/local_position/velocity_local', TwistStamped, sub.velocity_cb) # For velocity
     rospy.Subscriber('mavros/setpoint_raw/target_local', PositionTarget, sub.raw_sp_cb) # For acc_sp
-    rospy.Subscriber('gazebo/link_states', LinkStates, sub.link_states_cb) # For payload angles
+    rospy.Subscriber('mavros/px4flow/raw/optical_flow_rad', OpticalFlowRad, sub.payload_angle_cb) # For acc_sp
     rospy.Subscriber('setpoint_raw/local', PositionTarget, sub.pos_sp_cb) # For pos_sp
-    rospy.Subscriber('/simulink/acc_sp', Vector3, sub.simulink_acc_sp_cb) # For pos_sp
+    rospy.Subscriber('simulink/acc_sp', Vector3, sub.simulink_acc_sp_cb) # For pos_sp
 
     # Log file
-    parent_folder = "/home/honeybee/sys_id/data" # Folder on Jetson Nano
-    # parent_folder = "/home/murray/sys_id/data"
+    if username == 'honeybee':
+        parent_folder = "/home/honeybee/sys_id/data" # Folder on Jetson Nano
+    elif username == 'murray':
+        parent_folder = "/home/murray/Masters/Developer/MATLAB/Quad_Sim_Murray/system_id/HITL/iris/data"
     
     date_folder = datetime.now().strftime("%Y-%m-%d")
     log_path = os.path.join(parent_folder, date_folder)
@@ -143,7 +145,7 @@ def run(argv):
                         'pos_sp.x', 'pos_sp.y', 'pos_sp.z',
                         'vel_sp.x', 'vel_sp.y', 'vel_sp.z', 
                         'acc_sp.x', 'acc_sp.y', 'acc_sp.y',
-                        'payload_angles.x', 'payload_angles.y', 'payload_angles.z',
+                        'payload_euler.x', 'payload_euler.y', 'payload_euler.z',
                         'simulink_acc_sp.x', 'simulink_acc_sp.y', 'simulink_acc_sp.y',
                     ]
   
@@ -164,16 +166,15 @@ def run(argv):
         pos_sp          = sub.pos_sp
         vel_sp          = sub.vel_sp
         acc_sp          = sub.acc_sp        
-        payload_quat    = sub.payload_quat
+        payload_euler   = sub.payload_euler
         simulink_acc_sp = sub.simulink_acc_sp
         
-        # Convert quat to angles
-        payload_angles_tuple = euler_from_quaternion([payload_quat.x, payload_quat.y, payload_quat.z, payload_quat.w], 'sxyz') # Gazebo frame (Drone N = x, E = -y, D = -z)
-        
-        # Convert to NED local frame (angles are relative to Drone heading)
-        payload_angles.x = payload_angles_tuple[0]
-        payload_angles.y = -payload_angles_tuple[1]
-        payload_angles.z = -payload_angles_tuple[2]
+        # # Convert quat to angles
+        # payload_angles_tuple = euler_from_quaternion([payload_quat.x, payload_quat.y, payload_quat.z, payload_quat.w], 'sxyz') # Gazebo frame (Drone N = x, E = -y, D = -z)
+        # # Convert to NED local frame (angles are relative to Drone heading)
+        # payload_angles.x = payload_angles_tuple[0]
+        # payload_angles.y = -payload_angles_tuple[1]
+        # payload_angles.z = -payload_angles_tuple[2]
 
         # Log data for system identification. Print to csv file     
         new_row = [ current_time,
@@ -182,7 +183,7 @@ def run(argv):
                     pos_sp.x, pos_sp.y, pos_sp.z,
                     vel_sp.x, vel_sp.y, vel_sp.z, 
                     acc_sp.x, acc_sp.y, acc_sp.y,
-                    payload_angles.x, payload_angles.y, payload_angles.z,
+                    payload_euler.x, payload_euler.y, payload_euler.z,
                     simulink_acc_sp.x, simulink_acc_sp.y, simulink_acc_sp.z,
                 ]
 
