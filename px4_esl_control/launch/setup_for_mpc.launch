@@ -1,5 +1,5 @@
 <launch>
-
+Launches all nodes needed to support Simulink MPC node
 	<!-- start with command:
     Local:
 	roslaunch px4_esl_control setup_for_mpc.launch fcu_url:="udp://:14540@127.0.0.1:14557" 
@@ -31,10 +31,10 @@
 	</include>
 
     <!-- Custom nodes: -->
+	<node name="optflow_to_vector3"		pkg="px4_esl_control"  type="optflow_to_vector3.py"/>
     <node name="vector3_to_setpoint"    pkg="px4_esl_control"  type="vector3_to_setpoint"/>
-    <node name="auto_offboard"          pkg="px4_esl_control"  type="auto_offboard.py"/>
     <node name="logger_iris"            pkg="px4_esl_control"  type="logger_iris.py"/>
-    <node name="payload_angle_iris"          pkg="px4_esl_control"  type="payload_angle_iris.py"/>
+    <node name="auto_offboard"          pkg="px4_esl_control"  type="auto_offboard.py"/>
     
     <!-- Dont run vector3_to_setpoint and vel_sp_publisher in the same run. They both publish setpoint_raw -->
 
