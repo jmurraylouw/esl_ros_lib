@@ -29,7 +29,7 @@ void vector3_callback(const geometry_msgs::Vector3::ConstPtr& msg){
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "pos_control_node");
+    ros::init(argc, argv, "vector3_to_setpoint");
     ros::NodeHandle nh;
 
     // Publisher

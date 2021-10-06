@@ -26,6 +26,7 @@ add_library(${PROJECT_NAME}
 # add_executable(offb_node src/offb_node.cpp)
 # add_executable(pos_control_node src/pos_control_node.cpp)
 add_executable(vector3_to_setpoint src/vector3_to_setpoint.cpp)
+add_executable(optflow_to_vector3 src/optflow_to_vector3.cpp)
 
 # target_link_libraries(offb_node
 #    ${catkin_LIBRARIES} ${mavros_LIBRARIES} ${mavlink_LIBRARIES}
@@ -34,5 +35,8 @@ add_executable(vector3_to_setpoint src/vector3_to_setpoint.cpp)
 #    ${catkin_LIBRARIES} ${mavros_LIBRARIES} ${mavlink_LIBRARIES}
 # )
 target_link_libraries(vector3_to_setpoint
+   ${catkin_LIBRARIES} ${mavros_LIBRARIES} ${mavlink_LIBRARIES}
+)
+target_link_libraries(optflow_to_vector3
    ${catkin_LIBRARIES} ${mavros_LIBRARIES} ${mavlink_LIBRARIES}
 )
